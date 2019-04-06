@@ -1,0 +1,7 @@
+.vscode
+target
+rls
+/*.svg
+/*.ico
+/*.icns
+/*.jpg
