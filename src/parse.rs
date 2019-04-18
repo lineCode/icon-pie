@@ -1,14 +1,14 @@
 extern crate regex;
 
 use regex::Regex;
-use std::{path::Path, convert::From, iter::Iterator};
-use super::{img::{Command, FitType}, Error, SyntaxError};
-use image::FilterType;
+use std::{convert::From, iter::Iterator};
+use super::{eval::{Command, FitType, OutputType}, Size, Error, SyntaxError, EvalError};
+use nsvg::image::FilterType;
 
 #[derive(Clone)]
 pub struct File {
     path: String,
-    sizes: Vec<(u16, u16)>,
+    sizes: Vec<Size>,
     pub fit_type: FitType,
     pub filter_type: FilterType
 }
@@ -18,9 +18,10 @@ enum Token {
     FileFlag,
     OutputFlag,
     PngFlag,
+    HelpFlag,
     Attribute(Attribute),
     Path(String),
-    Size((u16, u16))
+    Size(Size)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -31,13 +32,13 @@ enum Attribute {
 
 impl File {
     fn new(path: &String) -> File {
-        File {path: path.clone(), sizes: Vec::new(), fit_type: FitType::Exact, filter_type: FilterType::Nearest}
+        File {path: path.clone(), sizes: Vec::new(), fit_type: FitType::Strict, filter_type: FilterType::Nearest}
     }
 
-    fn add_size(&mut self, size: (u16, u16)) {
+    fn add_size(&mut self, size: Size) {
         let (w, h) = size;
 
-        if !self.sizes.iter().map(|(w, h)| (*w, *h)).collect::<Vec<(u16, u16)>>().contains(&(w, h)) {
+        if !self.sizes.iter().map(|(w, h)| (*w, *h)).collect::<Vec<Size>>().contains(&(w, h)) {
             self.sizes.push(size);
         }
     }
@@ -46,7 +47,7 @@ impl File {
         &self.path
     }
 
-    pub fn sizes(&self) -> Vec<(u16, u16)> {
+    pub fn sizes(&self) -> Vec<Size> {
         self.sizes.clone()
     }
 
@@ -61,43 +62,32 @@ impl From<&Token> for String {
             Token::FileFlag => String::from("-f"),
             Token::OutputFlag => String::from("-o"),
             Token::PngFlag => String::from("-png"),
+            Token::HelpFlag => String::from("-h"),
             Token::Path(path) => path.clone(),
-            Token::Attribute(atrr) => {
-                match atrr {
-                    Attribute::Proportional => String::from("--proportional"),
-                    Attribute::Interpolate => String::from("--interpolate")
-                }
+            Token::Attribute(atrr) => match atrr {
+                Attribute::Proportional => String::from("--proportional"),
+                Attribute::Interpolate => String::from("--interpolate")
             },
-            Token::Size((w, h)) => {
-                if w == h {
-                    format!("{}", w)
-                } else {
-                    format!("{}x{}", w, h)
-                }
-             }
+            Token::Size((w, h)) => if w == h { format!("{}", w) } else { format!("{}x{}", w, h) }
         }
     }
 }
 
-macro_rules! error {
+macro_rules! syntax {
     ($err:expr) => {Err(Error::Syntax($err))};
 }
 
-pub fn args(args: &Vec<String>) -> Result<Command, Error> {
+macro_rules! eval {
+    ($err:expr) => {Err(Error::Eval($err))};
+}
 
-    // Remove the first element of the args Vec if it is a path to this executable
-    let mut args: Vec<String> = args.clone();
-    if let Some(ext) = ext(args.first().unwrap_or(&String::new())) {
-        if ext == String::from("exe") {
-            args = args[1..].to_vec();
-        }
-    }
-
-    let tokens = tokens(&args)?;
-    let mut it = tokens.iter().peekable();
-
-    let n_files = args.iter().map(|arg| if arg == "-f" { 1 } else { 0 }).fold(0, |sum, x| sum + x);
+pub fn args(args: Vec<String>) -> Result<Command, Error> {
+    let n_files = args.iter().fold(0, |sum, arg| if arg == "-f" { sum + 1 } else { sum });
     let mut files = Vec::with_capacity(n_files);
+    let mut first_arg = true;
+
+    let tokens = tokens(args)?;
+    let mut it = tokens.iter().peekable();
 
     while let Some(&token) = it.peek() {
         match token {
@@ -124,31 +114,55 @@ pub fn args(args: &Vec<String>) -> Result<Command, Error> {
 
                     files.push(file);
                 } else {
-                    return error!(SyntaxError::UnexpectedToken(String::from(token)));
+                    return syntax!(SyntaxError::UnexpectedToken(String::from(token)));
                 }
             },
             &Token::OutputFlag | &Token::PngFlag => {
                 it.next();
                 if let Some(Token::Path(path)) = it.peek() {
-                    match (token, ext(path).unwrap_or_default().as_ref()) {
+                    let ext = ext(path).unwrap_or_default();
+
+                    match (token, ext.as_ref()) {
                         (Token::PngFlag, "zip") | (Token::OutputFlag, "ico") | (Token::OutputFlag, "icns") => {
                             it.next();
                             match it.peek() {
-                                Some(token) => return error!(SyntaxError::UnexpectedToken(String::from(*token))),
-                                None => return Ok(Command::new(files, path.clone()))
+                                Some(token) => return syntax!(SyntaxError::UnexpectedToken(String::from(*token))),
+                                None => match ext.as_ref() {
+                                    "ico"  => return Ok(Command::encode(files, path.clone(), OutputType::Ico)),
+                                    "icns" => return Ok(Command::encode(files, path.clone(), OutputType::Icns)),
+                                    "zip"  => return Ok(Command::encode(files, path.clone(), OutputType::PngSequence)),
+                                    _      => unreachable!()
+                                }
                             }
                         },
-                        _ => unimplemented!("TODO Return an error saying 'Wrong combination of output options'")
+                        (_, ext) => match token {
+                            Token::OutputFlag => return eval!(EvalError::UnsupportedOutputType(String::from(ext))),
+                            Token::PngFlag => return eval!(EvalError::UnsupportedPngOutput(String::from(ext))),
+                            _ => return syntax!(SyntaxError::UnexpectedToken(String::from(token)))
+                        }
                     }
                 } else {
-                    return error!(SyntaxError::MissingOutputPath);
+                    return syntax!(SyntaxError::MissingOutputPath);
                 }
             },
-            _ => return error!(SyntaxError::UnexpectedToken(String::from(token)))
+            &Token::HelpFlag => {
+                it.next();
+                if let Some(&token) = it.peek() {
+                    return syntax!(SyntaxError::UnexpectedToken(String::from(token)));
+                } else {
+                    return Ok(Command::Help);
+                }
+            },
+            _ => if first_arg {
+                it.next();
+                first_arg = false;
+            } else {
+                return syntax!(SyntaxError::UnexpectedToken(String::from(token)));
+            }
         }
     }
 
-     error!(SyntaxError::MissingOutputFlag)
+     syntax!(SyntaxError::MissingOutputFlag)
 }
 
 pub fn ext(path: &String) -> Option<String> {
@@ -174,17 +188,18 @@ pub fn ext(path: &String) -> Option<String> {
     }
 }
 
-fn tokens(args: &Vec<String>) -> Result<Vec<Token>, Error> {
+fn tokens(args: Vec<String>) -> Result<Vec<Token>, Error> {
     let size_regex: Regex = Regex::new(r"^\d+x\d+$").unwrap();
     let mut output = Vec::with_capacity(args.len());
 
     for arg in args {
         match arg.clone().into_boxed_str().as_ref() {
-            "-f" => output.push(Token::FileFlag),
-            "-o" => output.push(Token::OutputFlag),
+            "-f"   => output.push(Token::FileFlag),
+            "-o"   => output.push(Token::OutputFlag),
             "-png" => output.push(Token::PngFlag),
-            "--proportional" => output.push(Token::Attribute(Attribute::Proportional)),
-            "--interpolate" => output.push(Token::Attribute(Attribute::Interpolate)),
+            "-h"   => output.push(Token::HelpFlag),
+            "-p" | "--proportional" => output.push(Token::Attribute(Attribute::Proportional)),
+            "-i" | "--interpolate"  => output.push(Token::Attribute(Attribute::Interpolate)),
             _ => if let Ok(size) = arg.parse::<u16>() /* Parse a numeric value */ {
                 output.push(Token::Size((size, size)));
             } else if size_regex.is_match(&arg) /* Parse a tuple of numeric values */ {
@@ -193,11 +208,9 @@ fn tokens(args: &Vec<String>) -> Result<Vec<Token>, Error> {
                 let h: u16 = sizes[1].parse().unwrap();
 
                 output.push(Token::Size((w, h)));
-            } else if let Some(_) = Path::new(&arg).extension() /* Parse a path */ {
+            } else /* Parse a path */ {
                 output.push(Token::Path(arg.clone()));
-            } else {
-                return error!(SyntaxError::UnexpectedToken(arg.clone()));
-            }
+            } 
         }
     }
 
