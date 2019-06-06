@@ -1,26 +1,18 @@
 extern crate regex;
 
 use regex::Regex;
-use std::{convert::From, iter::Iterator};
-use super::{eval::{Command, FitType, OutputType}, Size, Error, SyntaxError, EvalError};
-use nsvg::image::FilterType;
-
-#[derive(Clone)]
-pub struct File {
-    path: String,
-    sizes: Vec<Size>,
-    pub fit_type: FitType,
-    pub filter_type: FilterType
-}
+use std::{convert::From, iter::{Iterator, Peekable}, slice::Iter, path::PathBuf, ffi::OsString, collections::HashMap};
+use super::{Command, Error, error::SyntaxError};
+use icon_baker::{IconOptions, IconType, ResamplingFilter, Crop, Size};
 
 #[derive(Clone, Debug, PartialEq)]
 enum Token {
-    FileFlag,
+    EntryFlag,
     OutputFlag,
     PngFlag,
     HelpFlag,
     Attribute(Attribute),
-    Path(String),
+    Path(PathBuf),
     Size(Size)
 }
 
@@ -30,43 +22,17 @@ enum Attribute {
     Interpolate
 }
 
-impl File {
-    fn new(path: &String) -> File {
-        File {path: path.clone(), sizes: Vec::new(), fit_type: FitType::Strict, filter_type: FilterType::Nearest}
-    }
-
-    fn add_size(&mut self, size: Size) {
-        let (w, h) = size;
-
-        if !self.sizes.iter().map(|(w, h)| (*w, *h)).collect::<Vec<Size>>().contains(&(w, h)) {
-            self.sizes.push(size);
-        }
-    }
-
-    pub fn path(&self) -> &String {
-        &self.path
-    }
-
-    pub fn sizes(&self) -> Vec<Size> {
-        self.sizes.clone()
-    }
-
-    pub fn n_sizes(&self) -> usize {
-        self.sizes.len()
-    }
-}
-
 impl From<&Token> for String {
     fn from(token: &Token) -> String {
         match token {
-            Token::FileFlag => String::from("-f"),
+            Token::EntryFlag   => String::from("-e"),
             Token::OutputFlag => String::from("-o"),
-            Token::PngFlag => String::from("-png"),
-            Token::HelpFlag => String::from("-h"),
-            Token::Path(path) => path.clone(),
+            Token::PngFlag    => String::from("-png"),
+            Token::HelpFlag   => String::from("-h"),
+            Token::Path(path) => format!("{}", path.as_path().display()),
             Token::Attribute(atrr) => match atrr {
-                Attribute::Proportional => String::from("--proportional"),
-                Attribute::Interpolate => String::from("--interpolate")
+                Attribute::Proportional => String::from("-p"),
+                Attribute::Interpolate  => String::from("-i")
             },
             Token::Size((w, h)) => if w == h { format!("{}", w) } else { format!("{}x{}", w, h) }
         }
@@ -77,82 +43,21 @@ macro_rules! syntax {
     ($err:expr) => {Err(Error::Syntax($err))};
 }
 
-macro_rules! eval {
-    ($err:expr) => {Err(Error::Eval($err))};
-}
-
-pub fn args(args: Vec<String>) -> Result<Command, Error> {
-    let n_files = args.iter().fold(0, |sum, arg| if arg == "-f" { sum + 1 } else { sum });
-    let mut files = Vec::with_capacity(n_files);
+pub fn args(args: Vec<OsString>) -> Result<Command, Error> {
+    let n_entries = args.iter().fold(0, |sum, arg| if arg == "-f" { sum + 1 } else { sum });
+    let mut entries = HashMap::with_capacity(n_entries);
     let mut first_arg = true;
 
-    let tokens = tokens(args)?;
+    let tokens = parse_tokens(args)?;
     let mut it = tokens.iter().peekable();
 
     while let Some(&token) = it.peek() {
         match token {
-            &Token::FileFlag => {
-                it.next();
-                // TODO Determine the number of sizes in this File struct so that File::sizes can be pre-allocated
-                if let Some(Token::Path(path)) = it.peek() {
-                    it.next();
-                    let mut file = File::new(&path);
-
-                    while let Some(Token::Size((w, h))) = it.peek() {
-                        it.next();
-                        file.add_size((*w, *h));
-                    }
-
-                    while let Some(Token::Attribute(atrr)) = it.peek() {
-                        it.next();
-
-                        match atrr {
-                            Attribute::Proportional => file.fit_type = FitType::Proportional,
-                            Attribute::Interpolate => file.filter_type = FilterType::Triangle
-                        }
-                    }
-
-                    files.push(file);
-                } else {
-                    return syntax!(SyntaxError::UnexpectedToken(String::from(token)));
-                }
+            &Token::EntryFlag => if let Err(err) = parse_entry(&mut it, &mut entries) {
+                return Err(err);
             },
-            &Token::OutputFlag | &Token::PngFlag => {
-                it.next();
-                if let Some(Token::Path(path)) = it.peek() {
-                    let ext = ext(path).unwrap_or_default();
-
-                    match (token, ext.as_ref()) {
-                        (Token::PngFlag, "zip") | (Token::OutputFlag, "ico") | (Token::OutputFlag, "icns") => {
-                            it.next();
-                            match it.peek() {
-                                Some(token) => return syntax!(SyntaxError::UnexpectedToken(String::from(*token))),
-                                None => match ext.as_ref() {
-                                    "ico"  => return Ok(Command::encode(files, path.clone(), OutputType::Ico)),
-                                    "icns" => return Ok(Command::encode(files, path.clone(), OutputType::Icns)),
-                                    "zip"  => return Ok(Command::encode(files, path.clone(), OutputType::PngSequence)),
-                                    _      => unreachable!()
-                                }
-                            }
-                        },
-                        (_, ext) => match token {
-                            Token::OutputFlag => return eval!(EvalError::UnsupportedOutputType(String::from(ext))),
-                            Token::PngFlag => return eval!(EvalError::UnsupportedPngOutput(String::from(ext))),
-                            _ => return syntax!(SyntaxError::UnexpectedToken(String::from(token)))
-                        }
-                    }
-                } else {
-                    return syntax!(SyntaxError::MissingOutputPath);
-                }
-            },
-            &Token::HelpFlag => {
-                it.next();
-                if let Some(&token) = it.peek() {
-                    return syntax!(SyntaxError::UnexpectedToken(String::from(token)));
-                } else {
-                    return Ok(Command::Help);
-                }
-            },
+            &Token::OutputFlag | &Token::PngFlag => return parse_command(&mut it, entries),
+            &Token::HelpFlag => return parse_help(&mut it),
             _ => if first_arg {
                 it.next();
                 first_arg = false;
@@ -165,54 +70,106 @@ pub fn args(args: Vec<String>) -> Result<Command, Error> {
      syntax!(SyntaxError::MissingOutputFlag)
 }
 
-pub fn ext(path: &String) -> Option<String> {
-    let mut it = path.chars().rev();
-    let mut ext = String::with_capacity(3);
-
-    while let Some(c) = it.next() {
-        if c == '.' {
-            break;
-        } else {
-            if ext.len() > 0 {
-                ext.insert(0, c);
-            } else {
-                ext.push(c);
-            }
-        }
-    }
-
-    if ext.len() > 0 {
-        Some(ext)
-    } else {
-        None
-    }
-}
-
-fn tokens(args: Vec<String>) -> Result<Vec<Token>, Error> {
+fn parse_tokens(args: Vec<OsString>) -> Result<Vec<Token>, Error> {
     let size_regex: Regex = Regex::new(r"^\d+x\d+$").unwrap();
     let mut output = Vec::with_capacity(args.len());
 
     for arg in args {
-        match arg.clone().into_boxed_str().as_ref() {
-            "-f"   => output.push(Token::FileFlag),
+        let arg_str = arg.to_str().unwrap_or_default();
+
+        match arg_str {
+            "-e"   => output.push(Token::EntryFlag),
             "-o"   => output.push(Token::OutputFlag),
             "-png" => output.push(Token::PngFlag),
             "-h"   => output.push(Token::HelpFlag),
             "-p" | "--proportional" => output.push(Token::Attribute(Attribute::Proportional)),
             "-i" | "--interpolate"  => output.push(Token::Attribute(Attribute::Interpolate)),
-            _ => if let Ok(size) = arg.parse::<u16>() /* Parse a numeric value */ {
+            _ => if let Ok(size) = arg_str.parse::<u16>() /* Parse a numeric value */ {
                 output.push(Token::Size((size, size)));
-            } else if size_regex.is_match(&arg) /* Parse a tuple of numeric values */ {
-                let sizes: Vec<&str> = arg.split("x").collect();
+            } else if size_regex.is_match(arg_str) /* Parse a tuple of numeric values */ {
+                let sizes: Vec<&str> = arg_str.split("x").collect();
                 let w: u16 = sizes[0].parse().unwrap();
                 let h: u16 = sizes[1].parse().unwrap();
 
                 output.push(Token::Size((w, h)));
             } else /* Parse a path */ {
-                output.push(Token::Path(arg.clone()));
+                let mut p = PathBuf::new();
+                p.push(arg);
+
+                output.push(Token::Path(p));
             } 
         }
     }
 
     Ok(output)
+}
+
+fn parse_entry(it: &mut Peekable<Iter<'_, Token>>, entries: &mut HashMap<IconOptions, PathBuf>) -> Result<(), Error> {
+    it.next();
+    if let Some(Token::Path(path)) = it.peek() {
+        it.next();
+        // TODO Determine the number of sizes in this File struct so that File::sizes can be pre-allocated
+        let mut sizes = Vec::new();
+
+        while let Some(Token::Size((w, h))) = it.peek() {
+            it.next();
+            sizes.push((*w, *h));
+        }
+
+        let mut opts = IconOptions::new(sizes, ResamplingFilter::Neareast, Crop::Square);
+
+        while let Some(Token::Attribute(atrr)) = it.peek() {
+            it.next();
+
+            match atrr {
+                Attribute::Proportional => opts.crop = Crop::Proportional,
+                Attribute::Interpolate  => opts.filter = ResamplingFilter::Linear
+            }
+        }
+
+        entries.insert(opts, path.clone());
+        Ok(())
+    } else {
+        syntax!(SyntaxError::UnexpectedToken(String::from(&Token::EntryFlag)))
+    }
+}
+
+fn parse_command(it: &mut Peekable<Iter<'_, Token>>, entries: HashMap<IconOptions, PathBuf>) -> Result<Command, Error> {
+    let token = *it.peek().expect("Variable 'it' should not be over.");
+
+    it.next();
+    if let Some(Token::Path(path)) = it.peek() {
+        let ext = path.extension().unwrap_or_default().to_str().unwrap_or_default();
+
+        match (token, ext) {
+            (Token::PngFlag, "zip") | (Token::OutputFlag, "ico") | (Token::OutputFlag, "icns") => {
+                it.next();
+                match it.peek() {
+                    Some(token) => syntax!(SyntaxError::UnexpectedToken(String::from(*token))),
+                    None => match ext {
+                        "ico"  => Ok(Command::Icon(entries, IconType::Ico, path.clone())),
+                        "icns" => Ok(Command::Icon(entries, IconType::Icns, path.clone())),
+                        "zip"  => Ok(Command::Icon(entries, IconType::PngSequence, path.clone())),
+                        _      => unreachable!()
+                    }
+                }
+            },
+            (_, ext) => match token {
+                Token::OutputFlag => syntax!(SyntaxError::UnsupportedOutputType(String::from(ext))),
+                Token::PngFlag => syntax!(SyntaxError::UnsupportedPngOutput(String::from(ext))),
+                _ => syntax!(SyntaxError::UnexpectedToken(String::from(token)))
+            }
+        }
+    } else {
+        syntax!(SyntaxError::MissingOutputPath)
+    }
+}
+
+fn parse_help(it: &mut Peekable<Iter<'_, Token>>) -> Result<Command, Error> {
+    it.next();
+    if let Some(&token) = it.peek() {
+        syntax!(SyntaxError::UnexpectedToken(String::from(token)))
+    } else {
+        Ok(Command::Help)
+    }
 }
