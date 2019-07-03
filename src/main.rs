@@ -5,16 +5,18 @@ extern crate regex;
 mod parse;
 mod error;
 
-use std::{env, io, fs, path::{Path, PathBuf}, collections::HashMap};
+use std::{env, io, fs, path::{Path, PathBuf}, ffi::OsString, collections::HashMap};
 use error::Error;
-use icon_baker::{Icon, IconOptions, IconType, SourceImage, FromFile};
+use icon_baker::{Icon, Entry, IconType, SourceImage, FromPath};
 use crossterm::{style, Color};
 
 pub enum Command {
     Help,
-    Icon(HashMap<IconOptions, PathBuf>, IconType, PathBuf)
+    Version,
+    Icon(HashMap<Entry, PathBuf>, IconType, PathBuf)
 }
 
+const VERSION: &str = "0.1.0";
 const TITLE: &str = r"
  __  ___  __   __ _  ____   __   __ _  ____  ____ 
 (  )/ __)/  \ (  ( \(  _ \ / _\ (  / )(  __)(  _ \
@@ -72,32 +74,43 @@ macro_rules! catch {
     };
 }
 
-fn main() {
-    match parse::args(env::args_os().collect()) {
+fn main() -> Result<(), std::io::Error> {
+    let args: Vec<OsString> = env::args_os().collect();
+
+    match parse::args(args.clone()) {
         Ok(cmd) => match cmd {
             Command::Icon(entries, icon_type, output_path) => if let Err(err) =  create_icon(&entries, icon_type, &output_path) {
-                err.show();
+                Err(err.show(args))
             } else {
                 let path = Path::new(&output_path);
                 println!(
                     "{} File {} saved at {}",
                     style("[IconBaker]").with(Color::Green),
-                    style(path.file_name().unwrap().to_string_lossy()).with(Color::Blue),
+                    style(path.file_name().unwrap_or_default().to_string_lossy()).with(Color::Blue),
                     style(path.canonicalize().unwrap_or(env::current_dir().unwrap()).display()).with(Color::Blue)
                 );
+
+                Ok(())
             },
-            Command::Help => help!()
+            Command::Help => {
+                help!();
+                Ok(())
+            },
+            Command::Version => {
+                println!("icon-baker v{}", VERSION);
+                Ok(())
+            }
         },
-        Err(err)  => err.show()
+        Err(err)  => Err(err.show(args))
     }
 }
 
-fn create_icon(entries: &HashMap<IconOptions, PathBuf>, icon_type: IconType, output_path: &PathBuf) -> Result<(), Error> {
+fn create_icon(entries: &HashMap<Entry, PathBuf>, icon_type: IconType, output_path: &PathBuf) -> Result<(), Error> {
     let mut source_map = HashMap::with_capacity(entries.len());
 
     for path in entries.values() {
         if let None = source_map.get(path) {
-            if let Some(source) = SourceImage::from_file(path) {
+            if let Some(source) = SourceImage::from_path(path) {
                 source_map.insert(path, source);
             } else {
                 return Err(Error::Io(io::Error::from(io::ErrorKind::NotFound), path.clone()));
@@ -105,13 +118,7 @@ fn create_icon(entries: &HashMap<IconOptions, PathBuf>, icon_type: IconType, out
         }
     }
 
-    let s_len = source_map.len();
-    let mut icon = match icon_type {
-        IconType::Ico  => Icon::ico(s_len),
-        IconType::Icns => Icon::icns(s_len),
-        IconType::PngSequence => Icon::png_sequence(s_len)
-    };
-
+    let mut icon = Icon::new(icon_type, source_map.len());
     for (opts, path) in entries {
         if let Err(err) = icon.add_entry(opts.clone(), source_map.get(path)
             .expect("Variable 'source_map' should have a key for String 'path'")) {

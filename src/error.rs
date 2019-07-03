@@ -1,4 +1,4 @@
-use std::{io, path::PathBuf};
+use std::{io, path::PathBuf, ffi::OsString};
 use crossterm::{style, Color};
 
 #[derive(Debug)]
@@ -10,26 +10,44 @@ pub enum Error {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum SyntaxError {
-    UnexpectedToken(String),
+    UnexpectedToken(usize),
     MissingOutputFlag,
     MissingOutputPath,
-    UnsupportedOutputType(String),
+    UnsupportedOutputType(String, usize),
     UnsupportedPngOutput(String)
 }
 
 const VALID_ICNS_SIZES: &str = "16x16, 32x32, 64x64, 128x128, 512x512 and 1024x1024";
 
 impl Error {
-    pub fn show(&self) {
+    pub fn show(&self, args: Vec<OsString>) -> io::Error {
         match &self {
-            Error::Syntax(err) => show_syntax(err),
+            Error::Syntax(err)    => show_syntax(err, args),
             Error::IconBaker(err) => show_icon_baker(err),
-            Error::Io(err, path) => show_io(err, path.clone())
+            Error::Io(err, path)  => show_io(err, path.clone())
+        }
+
+        self.to_io()
+    }
+
+    pub fn to_io(&self) -> io::Error {
+        match &self {
+            Error::Syntax(_)  => io::Error::from(io::ErrorKind::InvalidInput),
+            Error::Io(err, _) => io::Error::from(err.kind()),
+            Error::IconBaker(err) => match err {
+                icon_baker::Error::InvalidIcnsSize(_)
+                | icon_baker::Error::InvalidIcoSize(_)
+                | icon_baker::Error::SizeAlreadyIncluded(_) => io::Error::from(io::ErrorKind::InvalidInput),
+                icon_baker::Error::Io(err) => io::Error::from(err.kind()),
+                _ => io::Error::from(io::ErrorKind::Other)
+            }
         }
     }
 }
 
-fn show_syntax(err: &SyntaxError) {
+fn show_syntax(err: &SyntaxError, args: Vec<OsString>) {
+    let args: Vec<String> = args.iter().map(|os_str| os_str.clone().into_string().unwrap_or_default()).collect();
+
     match err {
         SyntaxError::MissingOutputFlag => println!(
             "{} Missing output details. Type {} for more details on IconBaker's usage.",
@@ -41,15 +59,20 @@ fn show_syntax(err: &SyntaxError) {
             style("[Syntax Error]").with(Color::Red),
             style("icon-baker -h").with(Color::Blue)
         ),
-        SyntaxError::UnexpectedToken(token) => println!(
-            "{} Unexpected token: {}.",
+        SyntaxError::UnexpectedToken(err) => println!(
+            "{} Unexpected token: {} {} {}",
             style("[Syntax Error]").with(Color::Red),
-            style(token).with(Color::Red)
+            style(args[..*err].join(" ")).with(Color::Blue),
+            style(args[*err].clone()).with(Color::Red),
+            style(args[(*err + 1)..].join(" ")).with(Color::Blue),
         ),
-        SyntaxError::UnsupportedOutputType(ext) => println!(
-            "{} Files with the {} file extension are not supported.", 
+        SyntaxError::UnsupportedOutputType(ext, err) => println!(
+            "{} The {} file extension is not supported: {} {} {}", 
             style("[IO Error]").with(Color::Red),
-            style(format!(".{}", ext.to_lowercase())).with(Color::Blue)
+            style(format!(".{}", ext.to_lowercase())).with(Color::Blue),
+            style(args[..*err].join(" ")).with(Color::Blue),
+            style(args[*err].clone()).with(Color::Red),
+            style(args[(*err + 1)..].join(" ")).with(Color::Blue)
         ),
         SyntaxError::UnsupportedPngOutput(ext) => println!(
             "{} The {} option only supports the {} file format. The {} file extension is not supported",

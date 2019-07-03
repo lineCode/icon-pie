@@ -1,10 +1,10 @@
 [package]
 name = "icon-baker"
-version = "0.1.0"
-authors = ["Gark Garcia <37553739+GarkGarcia@users.noreply.github.com>"]
+version = "0.1.0-beta"
+authors = ["Gark Garcia <thiago.brevidelli.garcia@protonmail.com>"]
 edition = "2018"
 
 [dependencies]
 regex = "1"
-icon_baker = "0.1.2"
+icon_baker = "1.0.1"
 crossterm = "0.7.0"
