@@ -25,24 +25,6 @@ enum Opt {
 
 type TokenStream<'a> = Peekable<Enumerate<Iter<'a, Token>>>;
 
-impl From<&Token> for String {
-    fn from(token: &Token) -> String {
-        match token {
-            Token::EntryFlag   => String::from("-e"),
-            Token::OutputFlag  => String::from("-o"),
-            Token::PngFlag     => String::from("-png"),
-            Token::HelpFlag    => String::from("-h"),
-            Token::VersionFlag => String::from("-v"),
-            Token::Path(path)  => format!("{}", path.as_path().display()),
-            Token::Opt(atrr)   => match atrr {
-                Opt::Proportional => String::from("-p"),
-                Opt::Interpolate  => String::from("-i")
-            },
-            Token::Size((w, h)) => if w == h { format!("{}", w) } else { format!("{}x{}", w, h) }
-        }
-    }
-}
-
 macro_rules! syntax {
     ($err:expr) => { Err(Error::Syntax($err)) };
 }

@@ -16,14 +16,14 @@ pub enum Command {
     Icon(HashMap<Entry, PathBuf>, IconType, PathBuf)
 }
 
-const VERSION: &str = "0.1.0";
+const VERSION: &str = "0.1.0-beta";
 const TITLE: &str = r"
  __  ___  __   __ _  ____   __   __ _  ____  ____ 
 (  )/ __)/  \ (  ( \(  _ \ / _\ (  / )(  __)(  _ \
  )(( (__(  O )/    / ) _ (/    \ )  (  ) _)  )   /
 (__)\___)\__/ \_)__)(____/\_/\_/(__\_)(____)(__\_)
 BETA 0.1.0";
-const USAGE: &str = "icon-baker (-e <file path> <size>... [-i | --interpolate] [-p | --proportional])... (-o <output path> | -png <output path>) | -h";
+const USAGE: &str = "icon-baker (-e <file path> <size>... [-i | --interpolate] [-p | --proportional])... (-o <output path> | -png <output path>) | -h | -v";
 const EXAMPLES: [&str;2] = [
     "icon-baker -e small.svg 16 20 24 -e big.png 32 64 -o output.ico",
     "icon-baker -e image.png 32x12 64x28 48 -i -png output.zip"
