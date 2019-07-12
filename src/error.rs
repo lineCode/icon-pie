@@ -20,7 +20,7 @@ pub enum SyntaxError {
 const VALID_ICNS_SIZES: &str = "16x16, 32x32, 64x64, 128x128, 512x512 and 1024x1024";
 
 impl Error {
-    pub fn show(&self, args: Vec<OsString>) -> io::Error {
+    pub fn exit_with(&self, args: Vec<OsString>) -> io::Error {
         match &self {
             Error::Syntax(err)    => show_syntax(err, args),
             Error::IconBaker(err) => show_icon_baker(err),

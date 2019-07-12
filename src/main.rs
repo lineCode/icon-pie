@@ -80,7 +80,7 @@ fn main() -> Result<(), std::io::Error> {
     match parse::args(args.clone()) {
         Ok(cmd) => match cmd {
             Command::Icon(entries, icon_type, output_path) => if let Err(err) =  create_icon(&entries, icon_type, &output_path) {
-                Err(err.show(args))
+                Err(err.exit_with(args))
             } else {
                 let path = Path::new(&output_path);
                 println!(
@@ -101,7 +101,7 @@ fn main() -> Result<(), std::io::Error> {
                 Ok(())
             }
         },
-        Err(err)  => Err(err.show(args))
+        Err(err)  => Err(err.exit_with(args))
     }
 }
 
