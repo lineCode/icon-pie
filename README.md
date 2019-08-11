@@ -1,6 +1,6 @@
 # IconBaker
 
-A simple command line tool for generating `.ico` and `.icns` icons.
+A simple command line tool for generating application icons.
 
 ## Intelligent Re-sampling
 **Icon Baker** uses _[nearest-neighbor re-sampling](https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation)_ by default, avoiding blurred edges when up-sizing small bitmap sources:
@@ -29,26 +29,28 @@ If you want your image to be linear interpolated, simply add the `-i` option to 
 ## Usage
 The formal syntax for using **IconBaker** is as follows:
 
-`icon-baker (-e <file path> <size>... [-i | --interpolate] [-p | --proportional])... (-o <output path> | -png <output path) | -h | -v`
+`icon-baker (-e <file path> <size>... [-i | --interpolate] [-p | --proportional])... (-ico <output path> | -icns <output path> | -png <output path>) | -h | --help | -v | --version`
 
 ### Flags
 
-|Flag                |Description                                |
-|--------------------|-------------------------------------------|
-|`-e (<options>)`    |Specify an entrys options.                 |
-|`-o <output path>`  |Outputs to `.ico` or `.icns` file.         |
-|`-png <output path>`|Outputs a `.png` sequence as a `.zip` file.|
-|`-h`                |Help.                                      |
-|`-v`                |Display version information.               |
+|Flag                 |Description                                |
+|---------------------|-------------------------------------------|
+|`-e (<options>)`     |Specify an entrys options.                 |
+|`-o <output path>`   |Outputs to `.ico` or `.icns` file.         |
+|`-ico <output path>` |Outputs to a .ico file.                    |
+|`-icns <output path>`|Outputs to a .icns file.                   |
+|`-png <output path>` |Outputs a `.png` sequence as a `.zip` file.|
+|`-h`, `--help`       |Help.                                      |
+|`-v`, `--version`    |Display version information.               |
 
 ### Options
-|Option                |Description                                                                                                      |
-|----------------------|-----------------------------------------------------------------------------------------------------------------|
-|`-i`, `--interpolate` |Apply linear interpolation when resampling the image.                                                            |
-|`-p`, `--proportional`|Preserves the aspect ratio of the image in the output. This option is only valid when outputing to png sequences.|
+|Option                |Description                                                                                                       |
+|----------------------|------------------------------------------------------------------------------------------------------------------|
+|`-i`, `--interpolate` |Apply linear interpolation when resampling the image.                                                             |
+|`-p`, `--proportional`|Preserves the aspect ratio of the image in the output. This option is only valid when outputting to png sequences.|
 
 ## Examples
-* `icon-baker -e small.svg 16 20 24 -e big.png 32 64 -o output.ico`
+* `icon-baker -e small.svg 16 20 24 -e big.png 32 64 -ico output.ico`
 * `icon-baker -e image.png 32x12 64x28 48 -i -png output.zip`
 
 ## Limitations
