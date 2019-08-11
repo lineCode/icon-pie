@@ -1,6 +1,6 @@
 [package]
 name = "icon-baker"
-version = "0.1.0-beta"
+version = "0.2.0-beta"
 authors = ["Gark Garcia <thiago.brevidelli.garcia@protonmail.com>"]
 edition = "2018"
 
@@ -8,3 +8,4 @@ edition = "2018"
 regex = "1"
 icon_baker = "1.0.1"
 crossterm = "0.7.0"
+lazy_static = "1.3.0"

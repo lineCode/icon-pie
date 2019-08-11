@@ -11,9 +11,7 @@ pub enum Error {
 pub enum SyntaxError {
     UnexpectedToken(usize),
     MissingOutputFlag,
-    MissingOutputPath,
-    UnsupportedOutputType(String, usize),
-    UnsupportedPngOutput(String)
+    MissingOutputPath
 }
 
 impl Error {
@@ -69,21 +67,6 @@ mod show {
                 style(args[..*err].join(" ")).with(Color::Blue),
                 style(args[*err].clone()).with(Color::Red),
                 style(args[(*err + 1)..].join(" ")).with(Color::Blue),
-            ),
-            SyntaxError::UnsupportedOutputType(ext, err) => println!(
-                "{} The {} file extension is not supported: {} {} {}", 
-                style("[IO Error]").with(Color::Red),
-                style(format!(".{}", ext.to_lowercase())).with(Color::Blue),
-                style(args[..*err].join(" ")).with(Color::Blue),
-                style(args[*err].clone()).with(Color::Red),
-                style(args[(*err + 1)..].join(" ")).with(Color::Blue)
-            ),
-            SyntaxError::UnsupportedPngOutput(ext) => println!(
-                "{} The {} option only supports the {} file format. The {} file extension is not supported",
-                style("[IO Error]").with(Color::Red),
-                style("-png").with(Color::Blue),
-                style(".zip").with(Color::Blue),
-                style(format!(".{}", ext.to_lowercase())).with(Color::Blue)
             )
         }
     }

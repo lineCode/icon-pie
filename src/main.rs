@@ -1,6 +1,8 @@
 extern crate icon_baker;
 extern crate crossterm;
 extern crate regex;
+#[macro_use]
+extern crate lazy_static;
 
 mod parse;
 mod error;
@@ -16,24 +18,31 @@ pub enum Command {
     Icon(HashMap<Entry, PathBuf>, IconType, PathBuf)
 }
 
-const VERSION: &str = "0.1.1-beta";
+const VERSION: &str = "0.2.0-beta";
 const TITLE: &str = r"
  __  ___  __   __ _  ____   __   __ _  ____  ____ 
 (  )/ __)/  \ (  ( \(  _ \ / _\ (  / )(  __)(  _ \
  )(( (__(  O )/    / ) _ (/    \ )  (  ) _)  )   /
-(__)\___)\__/ \_)__)(____/\_/\_/(__\_)(____)(__\_)
-BETA 0.1.0";
-const USAGE: &str = "icon-baker (-e <file path> <size>... [-i | --interpolate] [-p | --proportional])... (-o <output path> | -png <output path>) | -h | -v";
+(__)\___)\__/ \_)__)(____/\_/\_/(__\_)(____)(__\_)";
+const USAGE: &str = "icon-baker (-e <file path> <size>... [-i | --interpolate] [-p | --proportional])... (-ico <output path> | -icns <output path> | -png <output path>) | -h | --help | -v | --version";
 const EXAMPLES: [&str;2] = [
-    "icon-baker -e small.svg 16 20 24 -e big.png 32 64 -o output.ico",
+    "icon-baker -e small.svg 16 20 24 -e big.png 32 64 -ico output.ico",
     "icon-baker -e image.png 32x12 64x28 48 -i -png output.zip"
 ];
 
-const COMMANDS: [&str;3] = ["Specify an entrys options.", "Outputs to .ico or .icns file.", "Outputs a .png sequence as a .zip file."];
+const COMMANDS: [&str;6] = [
+    "Specify an entries options.",
+    "Outputs to a .ico file.",
+    "Outputs to a .icns file.",
+    "Outputs a .png sequence as a .zip file.",
+    "Help.",
+    "Display version information."
+];
+
 const OPTIONS:  [&str;3] = [
     "Apply linear interpolation when resampling the image.",
     "Preserves the aspect ratio of the image in the output.",
-    "This option is only valid when outputing to png sequences."
+    "This option is only valid when outputting to png sequences."
 ];
 
 macro_rules! catch {
@@ -51,7 +60,7 @@ fn main() -> Result<(), std::io::Error> {
 
     match parse::args(args.clone()) {
         Ok(cmd) => match cmd {
-            Command::Icon(entries, icon_type, output_path) => if let Err(err) =  eval::icon(&entries, icon_type, &output_path) {
+            Command::Icon(entries, icon_type, output_path) => if let Err(err) = eval::icon(&entries, icon_type, &output_path) {
                 Err(err.exit_with(args))
             } else {
                 let path = Path::new(&output_path);
@@ -72,16 +81,27 @@ fn main() -> Result<(), std::io::Error> {
 }
 
 fn help() -> Result<(), io::Error> {
-    println!("{}\n\n{}", style(TITLE).with(Color::Green), style("Usage:").with(Color::Blue));
+    println!(
+        "{}\n{}",
+        style(TITLE).with(Color::Green),
+        style(VERSION).with(Color::Green)
+    );
 
-    println!("   {}\n\n{}{}\n{}{}\n{}{}",
+    println!("\n{}   {}\n\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}",
+        style("Usage:").with(Color::Blue),
         style(USAGE).with(Color::Green),
         style("   -e (<options>)      ").with(Color::Green),
         COMMANDS[0],
-        style("   -o <output path>    ").with(Color::Green),
+        style("   -ico <output path>  ").with(Color::Green),
         COMMANDS[1],
+        style("   -icns <output path> ").with(Color::Green),
+        COMMANDS[2],
         style("   -png <output path>  ").with(Color::Green),
-        COMMANDS[2]
+        COMMANDS[3],
+        style("   -h, --help          ").with(Color::Green),
+        COMMANDS[4],
+        style("   -v, --version       ").with(Color::Green),
+        COMMANDS[5]
     );
 
     println!("\n{}\n{}{}\n{}{}\n                       {}",

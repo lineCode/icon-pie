@@ -25,7 +25,7 @@ pub fn args(args: Vec<OsString>) -> Result<Command, Error> {
             Token::Flag(Flag::Entry) => if let Err(err) = entry(&mut it, &mut entries) {
                 return Err(err);
             },
-            Token::Flag(Flag::Output) | Token::Flag(Flag::Png) => return command::parse(&mut it, entries),
+            Token::Flag(Flag::Ico) | Token::Flag(Flag::Icns) | Token::Flag(Flag::Png) => return command::parse(&mut it, entries),
             Token::Flag(Flag::Help) => return help(&mut it),
             _ => return syntax!(SyntaxError::UnexpectedToken(*c))
         }
@@ -57,7 +57,8 @@ mod tokens {
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub enum Flag {
         Entry,
-        Output,
+        Ico,
+        Icns,
         Png,
         Help,
         Version,
@@ -84,31 +85,40 @@ mod tokens {
     }
 
     fn token_from_str(string: &str) -> Token {
-        let size_regex: Regex = Regex::new(r"^\d+x\d+$").unwrap();
+        lazy_static! {
+            static ref SIZE_REGEX: Regex = Regex::new(r"^\d+x\d+$").unwrap();
+        }
 
         match string {
-            "-e"   => Token::Flag(Flag::Entry),
-            "-o"   => Token::Flag(Flag::Output),
-            "-png" => Token::Flag(Flag::Png),
-            "-h"   => Token::Flag(Flag::Help),
-            "-v"   => Token::Flag(Flag::Version),
+            "-e"    => Token::Flag(Flag::Entry),
+            "-ico"  => Token::Flag(Flag::Ico),
+            "-icns" => Token::Flag(Flag::Icns),
+            "-png"  => Token::Flag(Flag::Png),
+            "-h" | "--help"         => Token::Flag(Flag::Help),
+            "-v" | "--version"      => Token::Flag(Flag::Version),
             "-p" | "--proportional" => Token::Opt(Opt::Proportional),
             "-i" | "--interpolate"  => Token::Opt(Opt::Interpolate),
             _ => if let Ok(size) = string.parse::<u16>() /* Parse a numeric value */ {
                 Token::Size((size, size))
-            } else if size_regex.is_match(string) /* Parse a tuple of numeric values */ {
+            } else if SIZE_REGEX.is_match(string) /* Parse a tuple of numeric values */ {
                 let sizes: Vec<&str> = string.split("x").collect();
-                let w: u16 = sizes[0].parse().unwrap();
-                let h: u16 = sizes[1].parse().unwrap();
 
-                Token::Size((w, h))
+                if let (Ok(w), Ok(h)) = (sizes[0].parse::<u16>(), sizes[1].parse::<u16>()) {
+                    Token::Size((w, h))
+                } else {
+                    path_from_str(string)
+                }
             } else /* Parse a path */ {
-                let mut p = PathBuf::new();
-                p.push(string);
-
-                Token::Path(p)
-            } 
+                path_from_str(string)
+            }
         }
+    }
+
+    fn path_from_str(string: &str) -> Token {
+        let mut p = PathBuf::new();
+        p.push(string);
+
+        Token::Path(p)
     }
 
 }
@@ -150,7 +160,7 @@ fn entry(it: &mut TokenStream, entries: &mut HashMap<Entry, PathBuf>) -> Result<
 }
 
 mod command {
-    use std::{convert::From, path::PathBuf, collections::HashMap};
+    use std::{path::PathBuf, collections::HashMap};
     use crate::{Command, Error, error::SyntaxError};
     use super::{Token, TokenStream, Flag};
     use icon_baker::{Entry, IconType};
@@ -158,30 +168,16 @@ mod command {
     pub fn parse(it: &mut TokenStream, entries: HashMap<Entry, PathBuf>) -> Result<Command, Error> {
         let (_, token) = *it.peek().expect("Variable 'it' should not be over.");
         it.next();
-        
-        if let Some(&(c, Token::Path(path))) = it.peek() {
-            let ext = path.extension().unwrap_or_default().to_str().unwrap_or_default();
-    
-            match ext {
-                "ico"  => match token {
-                    Token::Flag(Flag::Output) => expect_end(it, Command::Icon(entries, IconType::Ico, path.clone())),
-                    Token::Flag(Flag::Png) => syntax!(SyntaxError::UnsupportedPngOutput(String::from(ext))),
-                    _ => syntax!(SyntaxError::UnexpectedToken(c))
-                },
-                "icns" => match token {
-                    Token::Flag(Flag::Output) => expect_end(it, Command::Icon(entries, IconType::Icns, path.clone())),
-                    Token::Flag(Flag::Png) => syntax!(SyntaxError::UnsupportedPngOutput(String::from(ext))),
-                    _ => syntax!(SyntaxError::UnexpectedToken(c))
-                },
-                "zip"  => match token {
-                    Token::Flag(Flag::Output) => syntax!(SyntaxError::UnsupportedOutputType(String::from(ext), c)),
-                    Token::Flag(Flag::Png) => expect_end(it, Command::Icon(entries, IconType::PngSequence, path.clone())),
-                    _ => syntax!(SyntaxError::UnexpectedToken(c))
-                },
-                _     => unreachable!()
-            }
-        } else {
-            syntax!(SyntaxError::MissingOutputPath)
+
+        match it.peek() {
+            Some(&(c, Token::Path(path))) => match token {
+                Token::Flag(Flag::Ico) => expect_end(it, Command::Icon(entries, IconType::Ico, path.clone())),
+                Token::Flag(Flag::Icns) => expect_end(it, Command::Icon(entries, IconType::Icns, path.clone())),
+                Token::Flag(Flag::Png) => expect_end(it, Command::Icon(entries, IconType::PngSequence, path.clone())),
+                _ => syntax!(SyntaxError::UnexpectedToken(c))
+            },
+            Some(&(c, _)) => syntax!(SyntaxError::UnexpectedToken(c)),
+            None => syntax!(SyntaxError::MissingOutputPath)
         }
     }
     
