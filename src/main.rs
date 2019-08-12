@@ -22,7 +22,7 @@ pub enum Output {
     Stdout
 }
 
-const VERSION: &str = "0.2.1-beta";
+const VERSION: &str = "0.2.2-beta";
 const TITLE: &str = r"
  __  ___  __   __ _  ____   __   __ _  ____  ____ 
 (  )/ __)/  \ (  ( \(  _ \ / _\ (  / )(  __)(  _ \
@@ -31,15 +31,15 @@ const TITLE: &str = r"
 const USAGE: &str = "icon-baker ((-e <file path> <size>... [-i | --interpolate])... (-ico | -icns | -png) [<output path>]) | -h | --help | -v | --version";
 const EXAMPLES: [&str;3] = [
     "icon-baker -e small.svg 16 20 24 -e big.png 32 64 -ico output.ico",
-    "icon-baker -e image.png 32 64 48 -i -png output.zip",
-    "icon-baker -e image.jpeg 32 64 128 -i -icns"
+    "icon-baker -e image.png 32 64 48 -i -png output.tar",
+    "icon-baker -e image.jpg 16 32 64 -i -icns > output.icns"
 ];
 
 const COMMANDS: [&str;7] = [
     "Specify an entries options.",
     "Outputs to a .ico file.",
     "Outputs to a .icns file.",
-    "Outputs a .png sequence as a .zip file.",
+    "Outputs a .png sequence as a .tar file.",
     "Help.",
     "Display version information.",
     "Apply linear interpolation when resampling the image."
@@ -78,7 +78,7 @@ fn main() -> Result<(), std::io::Error> {
 
 fn help() -> Result<(), io::Error> {
     println!(
-        "{}\n{}",
+        "{}\nV {}",
         style(TITLE).with(Color::Green),
         style(VERSION).with(Color::Green)
     );

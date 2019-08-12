@@ -36,17 +36,17 @@ pub fn icon(
 
     match output {
         Output::Path(path) => match fs::File::create(path.clone()) {
-            Ok(file) => write(&icon, entries, file),
+            Ok(file) => write(file, &icon, entries),
             Err(err) => Err(Error::Io(err, path))
         },
-        Output::Stdout => write(&icon, entries, stdout())
+        Output::Stdout => write(stdout(), &icon, entries)
     }
 }
 
 fn write<W: Write>(
+    w: W,
     icon: &Icon,
-    entries: &HashMap<Size, (PathBuf, bool)>,
-    w: W
+    entries: &HashMap<Size, (PathBuf, bool)>
 ) -> Result<(), Error> {
     icon.write(w,
         |src, size| match entries.get(&size) {
