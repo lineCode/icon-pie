@@ -11,7 +11,6 @@ pub enum Error {
 pub enum SyntaxError {
     UnexpectedToken(usize),
     MissingOutputFlag,
-    MissingOutputPath,
     SizeAlreadyIncluded(usize, usize)
 }
 
@@ -54,11 +53,6 @@ mod show {
         match err {
             SyntaxError::MissingOutputFlag => println!(
                 "{} Missing output details. Type {} for more details on IconBaker's usage.",
-                style("[Syntax Error]").with(Color::Red),
-                style("icon-baker -h").with(Color::Blue)
-            ),
-            SyntaxError::MissingOutputPath => println!(
-                "{} Missing output path: No path for the output file was specified. Type {} for more details on IconBaker's usage.",
                 style("[Syntax Error]").with(Color::Red),
                 style("icon-baker -h").with(Color::Blue)
             ),

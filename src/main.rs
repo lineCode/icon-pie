@@ -21,7 +21,7 @@ pub enum Command {
 
 pub enum Output {
     Path(PathBuf),
-    StdOut
+    Stdout
 }
 
 const VERSION: &str = "0.2.1-beta";

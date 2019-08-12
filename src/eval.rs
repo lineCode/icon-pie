@@ -35,7 +35,7 @@ pub fn icon(entries: &HashMap<Size, (PathBuf, bool)>, icon_type: IconType, outpu
             Ok(file) => write(&icon, entries, file),
             Err(err) => Err(Error::Io(err, path.clone()))
         },
-        Output::StdOut => write(&icon, entries, stdout())
+        Output::Stdout => write(&icon, entries, stdout())
     }
 }
 

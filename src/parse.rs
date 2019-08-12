@@ -156,18 +156,24 @@ mod command {
     use icon_baker::{Size, IconType};
     
     pub fn parse(it: &mut TokenStream, entries: HashMap<Size, (PathBuf, bool)>) -> Result<Command, Error> {
-        let (_, token) = *it.peek().expect("Variable 'it' should not be over.");
+        let (c, token) = *it.peek().expect("Variable 'it' should not be over.");
         it.next();
 
+        macro_rules! end {
+            ($out:expr) => {
+                match token {
+                    Token::Flag(Flag::Ico)  => expect_end(it, Command::Icon(entries, IconType::Ico,         $out)),
+                    Token::Flag(Flag::Icns) => expect_end(it, Command::Icon(entries, IconType::Icns,        $out)),
+                    Token::Flag(Flag::Png)  => expect_end(it, Command::Icon(entries, IconType::PngSequence, $out)),
+                    _ => syntax!(SyntaxError::UnexpectedToken(c))
+                }
+            };
+        }
+
         match it.peek() {
-            Some(&(c, Token::Path(path))) => match token {
-                Token::Flag(Flag::Ico)  => expect_end(it, Command::Icon(entries, IconType::Ico,         Output::Path(path.clone()))),
-                Token::Flag(Flag::Icns) => expect_end(it, Command::Icon(entries, IconType::Icns,        Output::Path(path.clone()))),
-                Token::Flag(Flag::Png)  => expect_end(it, Command::Icon(entries, IconType::PngSequence, Output::Path(path.clone()))),
-                _ => syntax!(SyntaxError::UnexpectedToken(c))
-            },
+            Some(&(c, Token::Path(path))) => end!(Output::Path(path.clone())),
+            None => end!(Output::Stdout),
             Some(&(c, _)) => syntax!(SyntaxError::UnexpectedToken(c)),
-            None => syntax!(SyntaxError::MissingOutputPath)
         }
     }
     
