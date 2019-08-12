@@ -1,15 +1,11 @@
 extern crate regex;
 
 use std::{iter::{Iterator, Peekable, Enumerate}, slice::Iter, path::PathBuf, ffi::OsString, collections::HashMap};
-use super::{Command, Error, error::SyntaxError};
-use tokens::{Token, Flag, Opt};
-use icon_baker::{Entry, ResamplingFilter, Crop};
+use crate::{Command, syntax, error::{Error, SyntaxError}};
+use tokens::{Token, Flag};
+use icon_baker::{Size};
 
 type TokenStream<'a> = Peekable<Enumerate<Iter<'a, Token>>>;
-
-macro_rules! syntax {
-    ($err:expr) => { Err(Error::Syntax($err)) };
-}
 
 pub fn args(args: Vec<OsString>) -> Result<Command, Error> {
     if args.is_empty() { return Ok(Command::Help); }
@@ -22,7 +18,7 @@ pub fn args(args: Vec<OsString>) -> Result<Command, Error> {
 
     while let Some((c, token)) = it.peek() {
         match token {
-            Token::Flag(Flag::Entry) => if let Err(err) = entry(&mut it, &mut entries) {
+            Token::Flag(Flag::Size) => if let Err(err) = entry(&mut it, &mut entries) {
                 return Err(err);
             },
             Token::Flag(Flag::Ico) | Token::Flag(Flag::Icns) | Token::Flag(Flag::Png) => return command::parse(&mut it, entries),
@@ -36,32 +32,26 @@ pub fn args(args: Vec<OsString>) -> Result<Command, Error> {
 
 mod tokens {
     use regex::Regex;
-    use std::{iter::Iterator, path::PathBuf, ffi::OsString};
+    use std::{path::PathBuf, ffi::OsString};
     use crate::{Error};
     use icon_baker::Size;
 
     #[derive(Clone, Debug, PartialEq)]
     pub enum Token {
         Flag(Flag),
-        Opt(Opt),
         Path(PathBuf),
         Size(Size)
     }
     
     #[derive(Clone, Copy, Debug, PartialEq)]
-    pub enum Opt {
-        Proportional,
-        Interpolate
-    }
-    
-    #[derive(Clone, Copy, Debug, PartialEq)]
     pub enum Flag {
-        Entry,
+        Size,
         Ico,
         Icns,
         Png,
         Help,
         Version,
+        Interpolate
     }
 
     pub fn parse<'a>(args: Vec<OsString>) -> Result<Vec<Token>, Error> {
@@ -90,24 +80,15 @@ mod tokens {
         }
 
         match string {
-            "-e"    => Token::Flag(Flag::Entry),
+            "-e"    => Token::Flag(Flag::Size),
             "-ico"  => Token::Flag(Flag::Ico),
             "-icns" => Token::Flag(Flag::Icns),
             "-png"  => Token::Flag(Flag::Png),
-            "-h" | "--help"         => Token::Flag(Flag::Help),
-            "-v" | "--version"      => Token::Flag(Flag::Version),
-            "-p" | "--proportional" => Token::Opt(Opt::Proportional),
-            "-i" | "--interpolate"  => Token::Opt(Opt::Interpolate),
-            _ => if let Ok(size) = string.parse::<u16>() /* Parse a numeric value */ {
-                Token::Size((size, size))
-            } else if SIZE_REGEX.is_match(string) /* Parse a tuple of numeric values */ {
-                let sizes: Vec<&str> = string.split("x").collect();
-
-                if let (Ok(w), Ok(h)) = (sizes[0].parse::<u16>(), sizes[1].parse::<u16>()) {
-                    Token::Size((w, h))
-                } else {
-                    path_from_str(string)
-                }
+            "-h" | "--help"        => Token::Flag(Flag::Help),
+            "-v" | "--version"     => Token::Flag(Flag::Version),
+            "-i" | "--interpolate" => Token::Flag(Flag::Interpolate),
+            _ => if let Ok(size) = string.parse::<u32>() /* Parse a numeric value */ {
+                Token::Size(size)
             } else /* Parse a path */ {
                 path_from_str(string)
             }
@@ -123,36 +104,45 @@ mod tokens {
 
 }
 
-fn entry(it: &mut TokenStream, entries: &mut HashMap<Entry, PathBuf>) -> Result<(), Error> {
+fn entry(it: &mut TokenStream, entries: &mut HashMap<Size, (PathBuf, bool)>) -> Result<(), Error> {
     let &(c, _) = it.peek().expect("Variable 'it' should not be over.");
     it.next();
 
-    if let Some((_, Token::Path(path))) = it.peek() {
+    if let Some(&(c, Token::Path(path))) = it.peek() {
+        // TODO Preallocate this Vec and this HashMap
+        let mut sizes = Vec::with_capacity(0);
+        let mut sizes_index = HashMap::with_capacity(0);
         it.next();
-        // TODO Determine the number of sizes in this entry so that 'sizes' can be pre-allocated
-        let mut sizes = Vec::new();
 
         match it.peek() {
-            Some(&(_, Token::Size(_))) => while let Some((_, Token::Size((w, h)))) = it.peek() {
+            Some(&(_, Token::Size(_))) => while let Some(&(c, Token::Size(size))) = it.peek() {
                 it.next();
-                sizes.push((*w, *h));
+                sizes.push(size);
+
+                if !sizes_index.contains_key(&size) {
+                    sizes_index.insert(size, c);
+                }
             },
             Some(&(c, _)) => return syntax!(SyntaxError::UnexpectedToken(c)),
             None => unreachable!()
         }
 
-        let mut opts = Entry::new(sizes, ResamplingFilter::Neareast, Crop::Square);
-
-        while let Some((_, Token::Opt(atrr))) = it.peek() {
+        let mut interpolate = false;
+        if let Some((_, Token::Flag(Flag::Interpolate))) = it.peek() {
+            interpolate = true;
             it.next();
+        }
 
-            match atrr {
-                Opt::Proportional => opts.crop = Crop::Proportional,
-                Opt::Interpolate  => opts.filter = ResamplingFilter::Linear
+        for &size in sizes {
+            if let Some(_) = entries.insert(size, (path.clone(), interpolate)) {
+                return syntax!(SyntaxError::SizeAlreadyIncluded(
+                    c, *sizes_index.get(&size)
+                        .expect("The variable 'sizes_index' should contain a key for 'size'")
+                ));
             }
         }
 
-        entries.insert(opts, path.clone());
+        it.next();
         Ok(())
     } else {
         syntax!(SyntaxError::UnexpectedToken(c))
@@ -161,19 +151,19 @@ fn entry(it: &mut TokenStream, entries: &mut HashMap<Entry, PathBuf>) -> Result<
 
 mod command {
     use std::{path::PathBuf, collections::HashMap};
-    use crate::{Command, Error, error::SyntaxError};
+    use crate::{Command, Output, error::{Error, SyntaxError}, syntax};
     use super::{Token, TokenStream, Flag};
-    use icon_baker::{Entry, IconType};
+    use icon_baker::{Size, IconType};
     
-    pub fn parse(it: &mut TokenStream, entries: HashMap<Entry, PathBuf>) -> Result<Command, Error> {
+    pub fn parse(it: &mut TokenStream, entries: HashMap<Size, (PathBuf, bool)>) -> Result<Command, Error> {
         let (_, token) = *it.peek().expect("Variable 'it' should not be over.");
         it.next();
 
         match it.peek() {
             Some(&(c, Token::Path(path))) => match token {
-                Token::Flag(Flag::Ico) => expect_end(it, Command::Icon(entries, IconType::Ico, path.clone())),
-                Token::Flag(Flag::Icns) => expect_end(it, Command::Icon(entries, IconType::Icns, path.clone())),
-                Token::Flag(Flag::Png) => expect_end(it, Command::Icon(entries, IconType::PngSequence, path.clone())),
+                Token::Flag(Flag::Ico)  => expect_end(it, Command::Icon(entries, IconType::Ico,         Output::Path(path.clone()))),
+                Token::Flag(Flag::Icns) => expect_end(it, Command::Icon(entries, IconType::Icns,        Output::Path(path.clone()))),
+                Token::Flag(Flag::Png)  => expect_end(it, Command::Icon(entries, IconType::PngSequence, Output::Path(path.clone()))),
                 _ => syntax!(SyntaxError::UnexpectedToken(c))
             },
             Some(&(c, _)) => syntax!(SyntaxError::UnexpectedToken(c)),

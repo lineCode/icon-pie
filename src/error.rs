@@ -11,7 +11,8 @@ pub enum Error {
 pub enum SyntaxError {
     UnexpectedToken(usize),
     MissingOutputFlag,
-    MissingOutputPath
+    MissingOutputPath,
+    SizeAlreadyIncluded(usize, usize)
 }
 
 impl Error {
@@ -67,44 +68,29 @@ mod show {
                 style(args[..*err].join(" ")).with(Color::Blue),
                 style(args[*err].clone()).with(Color::Red),
                 style(args[(*err + 1)..].join(" ")).with(Color::Blue),
-            )
+            ),
+            SyntaxError::SizeAlreadyIncluded(a, b)
+                => size_already_included(*a, *b, args)
         }
     }
     
     pub fn icon_baker(err: &icon_baker::Error) {
         match err {
-            icon_baker::Error::InvalidIcnsSize((w, h)) => if w == h {
-                println!(
-                    "{} The {} file format only supports {} icons: {}x{} icons aren't supported.",
-                    style("[Icns Error]").with(Color::Red),
-                    style(".icns").with(Color::Blue),
-                    VALID_ICNS_SIZES,
-                    w, h
-                )
-            } else {
-                println!(
-                    "{} The {} file format only supports square icons: {}x{} icons aren't supported.",
-                    style("[Icns Error]").with(Color::Red),
-                    style(".icns").with(Color::Blue),
-                    w, h
-                )
-            },
-            icon_baker::Error::InvalidIcoSize((w, h)) => if w == h {
-                println!(
-                    "{} The {} file format only supports icons of dimensions up to 256x256: {}x{} icons aren't supported.",
-                    style("[Ico Error]").with(Color::Red),
-                    style(".ico").with(Color::Blue),
-                    w, h
-                )
-            } else {
-                println!(
-                    "{} The {} file format only supports square icons: {}x{} icons aren't supported.",
-                    style("[Ico Error]").with(Color::Red),
-                    style(".ico").with(Color::Blue),
-                    w, h
-                )
-            },
-            icon_baker::Error::SizeAlreadyIncluded((_w, _h)) => unimplemented!(),
+            icon_baker::Error::InvalidIcnsSize(size) => println!(
+                "{0} The {1} file format only supports {2} icons: {3}x{3} icons aren't supported.",
+                style("[Icns Error]").with(Color::Red),
+                style(".icns").with(Color::Blue),
+                VALID_ICNS_SIZES,
+                size
+            ),
+            icon_baker::Error::InvalidIcoSize(size) => println!(
+                "{0} The {1} file format only supports icons of dimensions up to 256x256: {2}x{2} icons aren't supported.",
+                style("[Ico Error]").with(Color::Red),
+                style(".ico").with(Color::Blue),
+                size
+            ),
+            icon_baker::Error::SizeAlreadyIncluded(_) =>
+                unreachable!("This error should have been scaped in an earlier stage."),
             icon_baker::Error::Io(_) => unreachable!(),
             _ => panic!("{:?}", err)
         }
@@ -134,5 +120,20 @@ mod show {
             ),
             _ => panic!("{:?}", err)
         }
-    } 
+    }
+
+    fn size_already_included(a: usize, b: usize, args: Vec<String>) {
+        let (fst, scn) = if a < b { (a, b) } else { (b, a) };
+
+        println!(
+            /* TODO Implement this properly */
+            "{} The same size is binded to multiple sources: {} {} {} {} {}",
+            style("[Syntax Error]").with(Color::Red),
+            style(args[..fst].join(" ")).with(Color::Blue),
+            style(args[fst].clone()).with(Color::Red),
+            style(args[(fst + 1)..scn].join(" ")).with(Color::Blue),
+            style(args[scn].clone()).with(Color::Red),
+            style(args[(scn + 1)..].join(" ")).with(Color::Blue),
+        );
+    }
 }
