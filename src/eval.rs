@@ -1,8 +1,12 @@
-use std::{io::{self, Write, Seek, stdout}, fs, path::PathBuf, collections::HashMap};
+use std::{io::{self, Write, stdout}, fs, path::PathBuf, collections::HashMap};
 use crate::{error::Error, Output};
 use icon_baker::{Icon, IconType, SourceImage, FromPath, Size};
 
-pub fn icon(entries: &HashMap<Size, (PathBuf, bool)>, icon_type: IconType, output: Output) -> Result<(), Error> {
+pub fn icon(
+    entries: &HashMap<Size, (PathBuf, bool)>,
+    icon_type: IconType,
+    output: Output
+) -> Result<(), Error> {
     let mut source_map = HashMap::with_capacity(entries.len());
 
     for (path, _) in entries.values() {
@@ -31,15 +35,19 @@ pub fn icon(entries: &HashMap<Size, (PathBuf, bool)>, icon_type: IconType, outpu
     }
 
     match output {
-        Output::Path(path) => match fs::File::create(path) {
+        Output::Path(path) => match fs::File::create(path.clone()) {
             Ok(file) => write(&icon, entries, file),
-            Err(err) => Err(Error::Io(err, path.clone()))
+            Err(err) => Err(Error::Io(err, path))
         },
         Output::Stdout => write(&icon, entries, stdout())
     }
 }
 
-fn write<W: Write + Seek>(icon: &Icon, entries: &HashMap<Size, (PathBuf, bool)>, w: W) -> Result<(), Error> {
+fn write<W: Write>(
+    icon: &Icon,
+    entries: &HashMap<Size, (PathBuf, bool)>,
+    w: W
+) -> Result<(), Error> {
     icon.write(w,
         |src, size| match entries.get(&size) {
             Some((_, true)) => icon_baker::resample::linear(src, size),

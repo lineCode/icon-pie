@@ -1,5 +1,3 @@
-extern crate regex;
-
 use std::{iter::{Iterator, Peekable, Enumerate}, slice::Iter, path::PathBuf, ffi::OsString, collections::HashMap};
 use crate::{Command, syntax, error::{Error, SyntaxError}};
 use tokens::{Token, Flag};
@@ -31,7 +29,6 @@ pub fn args(args: Vec<OsString>) -> Result<Command, Error> {
 }
 
 mod tokens {
-    use regex::Regex;
     use std::{path::PathBuf, ffi::OsString};
     use crate::{Error};
     use icon_baker::Size;
@@ -75,10 +72,6 @@ mod tokens {
     }
 
     fn token_from_str(string: &str) -> Token {
-        lazy_static! {
-            static ref SIZE_REGEX: Regex = Regex::new(r"^\d+x\d+$").unwrap();
-        }
-
         match string {
             "-e"    => Token::Flag(Flag::Size),
             "-ico"  => Token::Flag(Flag::Ico),
@@ -160,19 +153,19 @@ mod command {
         it.next();
 
         macro_rules! end {
-            ($out:expr) => {
+            ($out:expr, $c:expr) => {
                 match token {
                     Token::Flag(Flag::Ico)  => expect_end(it, Command::Icon(entries, IconType::Ico,         $out)),
                     Token::Flag(Flag::Icns) => expect_end(it, Command::Icon(entries, IconType::Icns,        $out)),
                     Token::Flag(Flag::Png)  => expect_end(it, Command::Icon(entries, IconType::PngSequence, $out)),
-                    _ => syntax!(SyntaxError::UnexpectedToken(c))
+                    _ => syntax!(SyntaxError::UnexpectedToken($c))
                 }
             };
         }
 
         match it.peek() {
-            Some(&(c, Token::Path(path))) => end!(Output::Path(path.clone())),
-            None => end!(Output::Stdout),
+            Some(&(c, Token::Path(path))) => end!(Output::Path(path.clone()), c),
+            None => end!(Output::Stdout, c + 1),
             Some(&(c, _)) => syntax!(SyntaxError::UnexpectedToken(c)),
         }
     }

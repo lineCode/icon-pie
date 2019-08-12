@@ -1,8 +1,5 @@
 extern crate icon_baker;
 extern crate crossterm;
-extern crate regex;
-#[macro_use]
-extern crate lazy_static;
 
 mod parse;
 mod eval;
@@ -19,6 +16,7 @@ pub enum Command {
     Icon(HashMap<Size, (PathBuf, bool)>, IconType, Output)
 }
 
+#[derive(Clone, Debug)]
 pub enum Output {
     Path(PathBuf),
     Stdout
@@ -57,7 +55,7 @@ fn main() -> Result<(), std::io::Error> {
 
     match parse::args(args.clone()) {
         Ok(cmd) => match cmd {
-            Command::Icon(entries, icon_type, output) => if let Err(err) = eval::icon(&entries, icon_type, output) {
+            Command::Icon(entries, icon_type, output) => if let Err(err) = eval::icon(&entries, icon_type, output.clone()) {
                 Err(err.exit_with(args))
             } else {
                 if let Output::Path(path) = output {
