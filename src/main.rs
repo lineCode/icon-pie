@@ -5,15 +5,14 @@ mod parse;
 mod eval;
 mod error;
 
-use std::{env, io, path::{PathBuf}, ffi::OsString, collections::HashMap};
-use error::Error;
-use icon_baker::{IconType, Size};
+use std::{env, io, path::{PathBuf}};
+use icon_baker::Size;
 use crossterm::{style, Color};
 
 pub enum Command {
     Help,
     Version,
-    Icon(HashMap<Size, (PathBuf, bool)>, IconType, Output)
+    Icon(Entries, IconType, Output)
 }
 
 #[derive(Clone, Debug)]
@@ -22,83 +21,107 @@ pub enum Output {
     Stdout
 }
 
-const VERSION: &str = "0.2.2-beta";
-const TITLE: &str = r"
- __  ___  __   __ _  ____   __   __ _  ____  ____ 
-(  )/ __)/  \ (  ( \(  _ \ / _\ (  / )(  __)(  _ \
- )(( (__(  O )/    / ) _ (/    \ )  (  ) _)  )   /
-(__)\___)\__/ \_)__)(____/\_/\_/(__\_)(____)(__\_)";
-const USAGE: &str = "icon-baker ((-e <file path> <size>... [-i | --interpolate])... (-ico | -icns | -png) [<output path>]) | -h | --help | -v | --version";
-const EXAMPLES: [&str;3] = [
-    "icon-baker -e small.svg 16 20 24 -e big.png 32 64 -ico output.ico",
-    "icon-baker -e image.png 32 64 48 -i -png output.tar",
-    "icon-baker -e image.jpg 16 32 64 -i -icns > output.icns"
-];
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum IconType {
+    Ico,
+    Icns,
+    PngSequence
+}
 
-const COMMANDS: [&str;7] = [
-    "Specify an entries options.",
-    "Outputs to a .ico file.",
-    "Outputs to a .icns file.",
-    "Outputs a .png sequence as a .tar file.",
-    "Help.",
-    "Display version information.",
-    "Apply linear interpolation when resampling the image."
-];
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ResamplingFilter {
+    Nearest,
+    Linear,
+    Cubic
+}
+
+pub type Entries = Vec<(Size, PathBuf, ResamplingFilter)>;
 
 #[macro_export]
 macro_rules! syntax {
     ($err:expr) => { Err(Error::Syntax($err)) };
 }
 
-fn main() -> Result<(), std::io::Error> {
-    let args: Vec<OsString> = env::args_os().collect();
+const VERSION: &str = "0.3.0-beta";
+const TITLE: &str = r"
+ __  ___  __   __ _  ____   __   __ _  ____  ____ 
+(  )/ __)/  \ (  ( \(  _ \ / _\ (  / )(  __)(  _ \
+ )(( (__(  O )/    / ) _ (/    \ )  (  ) _)  )   /
+(__)\___)\__/ \_)__)(____/\_/\_/(__\_)(____)(__\_)";
+const USAGE: &str = "   icon-baker ((-e <file path> <size>... [-r (nearest | linear | cubic)])... (-ico | -icns | -png) [<output path>]) | -h | --help | -v | --version";
+const EXAMPLES: [&str;3] = [
+    "icon-baker -e small.svg 16 20 24 -e big.png 32 64 -ico output.ico",
+    "icon-baker -e image.png 32 64 48 -r linear -png output.tar",
+    "echo Here's an ICNS file: ${ icon-baker -e image.jpg 16 32 64 -r cubic -icns | hexdump }"
+];
 
-    match parse::args(args.clone()) {
-        Ok(cmd) => match cmd {
-            Command::Icon(entries, icon_type, output) => if let Err(err) = eval::icon(&entries, icon_type, output.clone()) {
-                Err(err.exit_with(args))
-            } else {
-                if let Output::Path(path) = output {
-                    println!(
-                        "{} File {} saved at {}",
-                        style("[IconBaker]").with(Color::Green),
-                        style(path.file_name().unwrap_or_default().to_string_lossy()).with(Color::Blue),
-                        style(path.canonicalize().unwrap_or(env::current_dir().unwrap()).display()).with(Color::Blue)
-                    );
-                }
+const COMMANDS: [&str;7] = [
+    "Specify an entrie's options.",
+    "Specify a resampling filter: 'nearest', 'linear' or 'cubic'. If no filter is specified the app defaults to 'nearest'.",
+    "Outputs to a .ico file.",
+    "Outputs to a .icns file.",
+    "Outputs a .png sequence as a .tar file.",
+    "Help.",
+    "Display version information.",
+];
 
-                Ok(())
-            },
-            Command::Help => help(),
-            Command::Version => version()
-        },
-        Err(err)  => Err(err.exit_with(args))
+fn main() -> io::Result<()> {
+    let args: Vec<String> = env::args().collect();
+
+    match parse::args(args) {
+        Ok(cmd)  => command(cmd),
+        Err(err) => Err(err.exit_with())
     }
 }
 
-fn help() -> Result<(), io::Error> {
+fn command(cmd: Command) -> io::Result<()> {
+    match cmd {
+        Command::Icon(entries, icon_type, output) => icon(&entries, icon_type, output)?,
+        Command::Help    => help(),
+        Command::Version => version()
+    }
+
+    Ok(())
+}
+
+fn icon(entries: &Entries, icon_type: IconType, output: Output) -> io::Result<()> {
+    eval::icon(&entries, icon_type, &output)
+        .map_err(|err| err.exit_with())?;
+
+    if let Output::Path(path) = output {
+        println!(
+            "{} Output saved at {}.",
+            style("[Success]").with(Color::Green),
+            style(path.display()).with(Color::Blue)
+        );
+    }
+
+    Ok(())
+}
+
+fn help() {
     println!(
         "{}\nV {}",
         style(TITLE).with(Color::Green),
         style(VERSION).with(Color::Green)
     );
 
-    println!("\n{}   {}\n\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}",
+    println!("\n{}{}\n\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}",
         style("Usage:").with(Color::Blue),
         style(USAGE).with(Color::Green),
-        style("   -e (<options>)      ").with(Color::Green),
+        style("   -e <options>        ").with(Color::Green),
         COMMANDS[0],
-        style("   -ico <output path>  ").with(Color::Green),
+        style("   -r <filter>         ").with(Color::Green),
         COMMANDS[1],
-        style("   -icns <output path> ").with(Color::Green),
+        style("   -ico <output path>  ").with(Color::Green),
         COMMANDS[2],
-        style("   -png <output path>  ").with(Color::Green),
+        style("   -icns <output path> ").with(Color::Green),
         COMMANDS[3],
-        style("   -h, --help          ").with(Color::Green),
+        style("   -png <output path>  ").with(Color::Green),
         COMMANDS[4],
-        style("   -v, --version       ").with(Color::Green),
+        style("   -h, --help          ").with(Color::Green),
         COMMANDS[5],
-        style("   -i, --interpolate   ").with(Color::Green),
+        style("   -v, --version       ").with(Color::Green),
         COMMANDS[6]
     );
 
@@ -108,11 +131,8 @@ fn help() -> Result<(), io::Error> {
         style(EXAMPLES[1]).with(Color::Green),
         style(EXAMPLES[2]).with(Color::Green)
     );
-
-    Ok(())
 }
 
-fn version() -> Result<(), io::Error> {
+fn version() {
     println!("icon-baker v{}", VERSION);
-    Ok(())
 }
