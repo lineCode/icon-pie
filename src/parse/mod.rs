@@ -1,11 +1,34 @@
 use std::{iter::{Iterator, Peekable, Enumerate}, slice::Iter};
 use crate::{Command, IconType, ResamplingFilter, Entries, Output, syntax, error::{Error, SyntaxError}};
-use token::{Token, Flag};
+use token::{Flag};
+pub use token::Token;
 
 mod token;
 type TokenStream<'a> = Peekable<Enumerate<Iter<'a, Token>>>;
 
-pub fn args(args: Vec<String>) -> Result<Command, Error> {
+macro_rules! icon {
+    ($entries:expr, $type:expr) => {
+        Command::Icon($entries, $type, Output::Stdout)
+    };
+    ($entries:expr, $type:expr, $path:expr) => {
+        Command::Icon($entries, $type, Output::Path($path))
+    };
+}
+
+macro_rules! next {
+    ($it:expr, $p:pat, $e:expr) => {
+        $it.next();
+        match $it.peek() {
+            Some(&(_, $p)) => $e,
+            Some(&(c, _))  => return syntax!(SyntaxError::UnexpectedToken(c)),
+            None           => return syntax!(SyntaxError::UnexpectedEnd)
+        }
+    };
+}
+
+pub fn args() -> Result<Command, Error> {
+    let args = crate::args();
+
     if args.is_empty() { return Ok(Command::Help); }
 
     let n_entries = args.iter().fold(0, |sum, arg| if arg == "-e" { sum + 1 } else { sum });
@@ -14,13 +37,13 @@ pub fn args(args: Vec<String>) -> Result<Command, Error> {
     let tokens = tokens(args);
     let mut it = tokens.iter().enumerate().peekable();
 
-    while let Some((c, token)) = it.peek() {
+    while let Some(&(c, token)) = it.peek() {
         match token {
-            Token::Flag(Flag::Entry) => if let Err(err) = entry(&mut it, &mut entries) { return Err(err); },
+            Token::Flag(Flag::Entry) => entry(&mut it, &mut entries)?,
             Token::Flag(Flag::Ico) | Token::Flag(Flag::Icns) | Token::Flag(Flag::Png) => return command(&mut it, entries),
             Token::Flag(Flag::Help)    => return expect_end(&mut it, Command::Help),
             Token::Flag(Flag::Version) => return expect_end(&mut it, Command::Version),
-            _                          => return syntax!(SyntaxError::UnexpectedToken(*c))
+            _                          => return syntax!(SyntaxError::UnexpectedToken(c))
         }
     }
 
@@ -46,29 +69,24 @@ fn tokens<'a>(args: Vec<String>) -> Vec<Token> {
 }
 
 fn entry(it: &mut TokenStream, entries: &mut Entries) -> Result<(), Error> {
-    let &(c, _) = it.peek().expect("Variable 'it' should not be over.");
     it.next();
 
-    if let Some(&(_, Token::Path(path))) = it.peek() {
-        // TODO Preallocate this Vec
-        let mut sizes_acc: Vec<u32> = Vec::with_capacity(0);
-        it.next();
+    match it.peek() {
+        Some(&(_, Token::Path(path))) => {
+            // TODO Preallocate this Vec
+            let mut sizes_acc: Vec<u32> = Vec::with_capacity(0);
+            next!(it, Token::Size(_), sizes(it, &mut sizes_acc));
 
-        match it.peek() {
-            Some(&(_, Token::Size(_))) => sizes(it, &mut sizes_acc),
-            Some(&(c, _)) => return syntax!(SyntaxError::UnexpectedToken(c)),
-            None          => return syntax!(SyntaxError::UnexpectedEnd)
-        }
-
-        let filter = filter(it)?;
-
-        for size in sizes_acc {
-            entries.push((size, path.clone(), filter));
-        }
-
-        Ok(())
-    } else {
-        syntax!(SyntaxError::UnexpectedToken(c))
+            let filter = filter(it)?;
+    
+            for size in sizes_acc {
+                entries.push((size, path.clone(), filter));
+            }
+    
+            Ok(())
+        },
+        Some(&(c, _)) => syntax!(SyntaxError::UnexpectedToken(c)),
+        None          => syntax!(SyntaxError::UnexpectedEnd)
     }
 }
 
@@ -81,36 +99,30 @@ fn sizes(it: &mut TokenStream, acc: &mut Vec<u32>) {
 
 fn filter(it: &mut TokenStream) -> Result<ResamplingFilter, Error> {
     if let Some((_, Token::Flag(Flag::Resample))) = it.peek() {
-        it.next();
-        match it.peek() {
-            Some((_, Token::Filter(filter))) => return Ok(*filter),
-            Some(&(c, _)) => return syntax!(SyntaxError::UnexpectedToken(c)),
-            None          => return syntax!(SyntaxError::UnexpectedEnd)
-        }
+        next!(it, Token::Filter(filter), { it.next(); return Ok(*filter); });
     }
 
     Ok(ResamplingFilter::Nearest)
 }
 
 fn command(it: &mut TokenStream, entries: Entries) -> Result<Command, Error> {
-    let (c, token) = *it.peek().expect("Variable 'it' should not be over.");
+    let icon_type = icon_type(it)?;
     it.next();
 
-    macro_rules! end {
-        ($out:expr, $c:expr) => {
-            match token {
-                Token::Flag(Flag::Ico)  => expect_end(it, Command::Icon(entries, IconType::Ico,         $out)),
-                Token::Flag(Flag::Icns) => expect_end(it, Command::Icon(entries, IconType::Icns,        $out)),
-                Token::Flag(Flag::Png)  => expect_end(it, Command::Icon(entries, IconType::PngSequence, $out)),
-                _                       => syntax!(SyntaxError::UnexpectedToken($c))
-            }
-        };
-    }
-
     match it.peek() {
-        Some(&(c, Token::Path(path))) => end!(Output::Path(path.clone()), c),
+        Some(&(_, Token::Path(path))) => expect_end(it, icon!(entries, icon_type, path.clone())),
         Some(&(c, _)) => syntax!(SyntaxError::UnexpectedToken(c)),
-        None          => end!(Output::Stdout, c + 1)
+        None          => expect_end(it, icon!(entries, icon_type))
+    }
+}
+
+fn icon_type(it: &mut TokenStream) -> Result<IconType, Error> {
+    match it.peek() {
+        Some(&(_, Token::Flag(Flag::Ico)))  => Ok(IconType::Ico),
+        Some(&(_, Token::Flag(Flag::Icns))) => Ok(IconType::Icns),
+        Some(&(_, Token::Flag(Flag::Png)))  => Ok(IconType::PngSequence),
+        Some(&(c, _))                       => syntax!(SyntaxError::UnexpectedToken(c)),
+        None                                => syntax!(SyntaxError::UnexpectedEnd)
     }
 }
 

@@ -1,11 +1,10 @@
-use std::{io, error::Error, path::PathBuf, env};
+use std::{io, error::Error, path::PathBuf};
 use crate::Output;
 use super::SyntaxError;
 use crossterm::{style, Color};
 
 pub fn syntax(err: &SyntaxError) {
-    let args: Vec<String> = env::args().collect();
-    let args = &args[1..];
+    let args = crate::args();
 
     match err {
         SyntaxError::UnexpectedToken(err_c) => println!(
@@ -17,12 +16,12 @@ pub fn syntax(err: &SyntaxError) {
             style(args[(*err_c + 1)..].join(" ")).with(Color::Blue)
         ),
         SyntaxError::UnexpectedEnd => println!(
-            "{} Type {} for more details on IconBaker's usage: {} {} {}",
+            "{} {} {} {}\nType {} for more details on IconBaker's usage.",
             style("[Expected Additional Tokens]").with(Color::Red),
-            style("icon-baker -h").with(Color::Blue),
             style("icon-baker").with(Color::Blue),
             style(args.join(" ")).with(Color::Blue),
-            style("_").with(Color::Red),
+            style("▂").with(Color::Red),
+            style("icon-baker -h").with(Color::Blue)
         )
     }
 }
@@ -35,11 +34,7 @@ pub fn icon_baker(err: &icon_baker::Error) {
             size
         );
     } else {
-        println!(
-            "{} {}",
-            style("[Unknown Error]").with(Color::Red),
-            err.description()
-        );
+        println!("{} {}", style("[Unknown Error]").with(Color::Red), err.description());
     }
 }
 

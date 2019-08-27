@@ -48,7 +48,7 @@ const TITLE: &str = r"
 (  )/ __)/  \ (  ( \(  _ \ / _\ (  / )(  __)(  _ \
  )(( (__(  O )/    / ) _ (/    \ )  (  ) _)  )   /
 (__)\___)\__/ \_)__)(____/\_/\_/(__\_)(____)(__\_)";
-const USAGE: &str = "   icon-baker ((-e <file path> <size>... [-r (nearest | linear | cubic)])... (-ico | -icns | -png) [<output path>]) | -h | --help | -v | --version";
+const USAGE: &str = "icon-baker ((-e <file path> <size>... [-r (nearest | linear | cubic)])... (-ico | -icns | -png) [<output path>]) | -h | --help | -v | --version";
 const EXAMPLES: [&str;3] = [
     "icon-baker -e small.svg 16 20 24 -e big.png 32 64 -ico output.ico",
     "icon-baker -e image.png 32 64 48 -r linear -png output.tar",
@@ -66,9 +66,7 @@ const COMMANDS: [&str;7] = [
 ];
 
 fn main() -> io::Result<()> {
-    let args: Vec<String> = env::args().collect();
-
-    match parse::args(args) {
+    match parse::args() {
         Ok(cmd)  => command(cmd),
         Err(err) => Err(err.exit_with())
     }
@@ -99,6 +97,7 @@ fn icon(entries: &Entries, icon_type: IconType, output: Output) -> io::Result<()
     Ok(())
 }
 
+#[inline]
 fn help() {
     println!(
         "{}\nV {}",
@@ -106,7 +105,7 @@ fn help() {
         style(VERSION).with(Color::Green)
     );
 
-    println!("\n{}{}\n\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}",
+    println!("\n{} {}\n\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}",
         style("Usage:").with(Color::Blue),
         style(USAGE).with(Color::Green),
         style("   -e <options>        ").with(Color::Green),
@@ -133,6 +132,21 @@ fn help() {
     );
 }
 
+#[inline]
 fn version() {
     println!("icon-baker v{}", VERSION);
+}
+
+fn args() -> Vec<String> {
+    let output: Vec<String> = env::args_os()
+        .map(|os_str| String::from(os_str.to_string_lossy()))
+        .collect();
+
+    if output.len() > 0 {
+        if let parse::Token::Path(_) = parse::Token::from(output[0].as_ref()) {
+            return Vec::from(&output[1..]);
+        }
+    }
+
+    output
 }
