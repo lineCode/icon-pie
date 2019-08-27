@@ -1,4 +1,4 @@
-use std::{iter::{Iterator, Peekable, Enumerate}, slice::Iter};
+use std::{path::PathBuf, iter::{Iterator, Peekable, Enumerate}, slice::Iter};
 use crate::{Command, IconType, ResamplingFilter, Entries, Output, syntax, error::{Error, SyntaxError}};
 use token::{Flag};
 pub use token::Token;
@@ -15,17 +15,6 @@ macro_rules! icon {
     };
 }
 
-macro_rules! next {
-    ($it:expr, $p:pat, $e:expr) => {
-        $it.next();
-        match $it.peek() {
-            Some(&(_, $p)) => $e,
-            Some(&(c, _))  => return syntax!(SyntaxError::UnexpectedToken(c)),
-            None           => return syntax!(SyntaxError::UnexpectedEnd)
-        }
-    };
-}
-
 pub fn args() -> Result<Command, Error> {
     let args = crate::args();
 
@@ -39,67 +28,63 @@ pub fn args() -> Result<Command, Error> {
 
     while let Some(&(c, token)) = it.peek() {
         match token {
-            Token::Flag(Flag::Entry) => entry(&mut it, &mut entries)?,
-            Token::Flag(Flag::Ico) | Token::Flag(Flag::Icns) | Token::Flag(Flag::Png) => return command(&mut it, entries),
+            Token::Flag(Flag::Entry)   => add_entry(&mut it, &mut entries)?,
             Token::Flag(Flag::Help)    => return expect_end(&mut it, Command::Help),
             Token::Flag(Flag::Version) => return expect_end(&mut it, Command::Version),
-            _                          => return syntax!(SyntaxError::UnexpectedToken(c))
+            Token::Flag(Flag::Ico) | Token::Flag(Flag::Icns) | Token::Flag(Flag::Png)
+                => return command(&mut it, entries),
+            _   => return syntax!(SyntaxError::UnexpectedToken(c))
         }
     }
 
     syntax!(SyntaxError::UnexpectedEnd)
 }
 
+#[inline]
 fn tokens<'a>(args: Vec<String>) -> Vec<Token> {
-    let mut output = Vec::with_capacity(args.len());
-
-    for arg in args {
-        output.push(Token::from(arg.as_str()));
-    }
-
-    // Remove the first token if it is a path. This accounts for the fact that the first element of
-    // env.os_args() may be the path to this executable, removing it from the output if necessary.
-    if output.len() > 0 {
-        if let Token::Path(_) = output[0] {
-            output.remove(0);
-        }
-    }
-
-    output
+    args.iter().map(|arg| Token::from(arg.as_ref())).collect()
 }
 
-fn entry(it: &mut TokenStream, entries: &mut Entries) -> Result<(), Error> {
+fn entry(it: &mut TokenStream, entries: &mut Entries, path: &PathBuf) -> Result<(), Error> {
+    // TODO Preallocate this Vec
+    let mut sizes = Vec::with_capacity(0);
+
     it.next();
-
     match it.peek() {
-        Some(&(_, Token::Path(path))) => {
-            // TODO Preallocate this Vec
-            let mut sizes_acc: Vec<u32> = Vec::with_capacity(0);
-            next!(it, Token::Size(_), sizes(it, &mut sizes_acc));
-
-            let filter = filter(it)?;
-    
-            for size in sizes_acc {
-                entries.push((size, path.clone(), filter));
-            }
-    
-            Ok(())
+        Some(&(_, Token::Size(_))) => while let Some(&(_, Token::Size(size))) = it.peek() {
+            it.next();
+            sizes.push(*size);
         },
+        Some(&(c, _)) => return syntax!(SyntaxError::UnexpectedToken(c)),
+        None          => return syntax!(SyntaxError::UnexpectedEnd)
+    }
+
+    let filter = filter(it)?;
+
+    for size in sizes {
+        entries.push((size, path.clone(), filter));
+    }
+
+    Ok(())
+}
+
+fn add_entry(it: &mut TokenStream, entries: &mut Entries) -> Result<(), Error> {
+    it.next();
+    match it.peek() {
+        Some(&(_, Token::Path(path))) => entry(it, entries, path),
         Some(&(c, _)) => syntax!(SyntaxError::UnexpectedToken(c)),
         None          => syntax!(SyntaxError::UnexpectedEnd)
     }
 }
 
-fn sizes(it: &mut TokenStream, acc: &mut Vec<u32>) {
-    while let Some(&(_, Token::Size(size))) = it.peek() {
-        it.next();
-        acc.push(*size);
-    }
-}
-
 fn filter(it: &mut TokenStream) -> Result<ResamplingFilter, Error> {
     if let Some((_, Token::Flag(Flag::Resample))) = it.peek() {
-        next!(it, Token::Filter(filter), { it.next(); return Ok(*filter); });
+        it.next();
+        match it.peek() {
+            Some(&(_, Token::Filter(filter))) => { it.next(); return Ok(*filter); },
+            Some(&(c, _)) => return syntax!(SyntaxError::UnexpectedToken(c)),
+            None          => return syntax!(SyntaxError::UnexpectedEnd)
+        }
     }
 
     Ok(ResamplingFilter::Nearest)
@@ -107,12 +92,12 @@ fn filter(it: &mut TokenStream) -> Result<ResamplingFilter, Error> {
 
 fn command(it: &mut TokenStream, entries: Entries) -> Result<Command, Error> {
     let icon_type = icon_type(it)?;
-    it.next();
 
+    it.next();
     match it.peek() {
         Some(&(_, Token::Path(path))) => expect_end(it, icon!(entries, icon_type, path.clone())),
         Some(&(c, _)) => syntax!(SyntaxError::UnexpectedToken(c)),
-        None          => expect_end(it, icon!(entries, icon_type))
+        None          => Ok(icon!(entries, icon_type))
     }
 }
 
