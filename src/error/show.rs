@@ -34,18 +34,22 @@ pub fn icon_baker(err: &icon_baker::Error) {
             size
         );
     } else {
-        println!("{} {}", style("[Unknown Error]").with(Color::Red), err.description());
+        println!("{} {}", style("[Unknown Error]").with(Color::Red), format(err.description()));
     }
 }
 
 pub fn io(err: &io::Error, out: Output) {
     match out {
-        Output::Path(path) => io_path(err, path),
-        Output::Stdout     => io_stdout(err)
+        Output::Path(path) => file(err, path),
+        Output::Stdout     => println!(
+            "{} {}",
+            style("[IO Error]").with(Color::Red),
+            format(err.description())
+        )
     }
 }
 
-fn io_path(err: &io::Error, path: PathBuf) {
+fn file(err: &io::Error, path: PathBuf) {
     match err.kind() {
         io::ErrorKind::NotFound => println!(
             "{} File {} could not be found on disk.",
@@ -53,7 +57,7 @@ fn io_path(err: &io::Error, path: PathBuf) {
             style(path.display()).with(Color::Blue)
         ),
         io::ErrorKind::PermissionDenied => println!(
-            "{} Permission denied: File {} is inaccessible.",
+            "{} Permission denied. File {} is inaccessible.",
             style("[IO Error]").with(Color::Red),
             style(path.display()).with(Color::Blue)
         ),
@@ -70,11 +74,29 @@ fn io_path(err: &io::Error, path: PathBuf) {
         _ => println!(
             "{} {}.",
             style("[IO Error]").with(Color::Red),
-            err.description()
+            format(err.description())
         )
     }
 }
 
-fn io_stdout(err: &io::Error) {
-    unimplemented!("{:?}", err);
+// Makes sure errors message start with a capital letter and ends with '.'
+fn format(txt: &str) -> String {
+    let mut output = String::with_capacity(txt.len());
+    let mut chars = txt.chars();
+
+    if let Some(ch) = chars.next() {
+        if ch.is_lowercase() {
+            output.extend(ch.to_uppercase());
+        } else {
+            output.push(ch);
+        }
+    }
+
+    output.extend(chars);
+
+    if !txt.ends_with('.') {
+        output.push('.');
+    }
+
+    output
 }
