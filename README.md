@@ -1,13 +1,13 @@
-# IconBaker
-[![Crate](https://img.shields.io/crates/v/icon-baker.svg)](https://crates.io/crates/icon-baker)
+# IconPie
+[![Crate](https://img.shields.io/crates/v/icon-pie.svg)](https://crates.io/crates/icon-pie)
 [![Minimum rustc version](https://img.shields.io/badge/rustc-1.32+-lightgray.svg)](https://github.com/rust-random/rand#rust-version-requirements)
 
 A simple command line tool for generating application icons.
 
 ## Usage
-The formal [`docopt`](http://docopt.org/) syntax for using **IconBaker** is as follows:
+The formal [`docopt`](http://docopt.org/) syntax for using **IconPie** is as follows:
 
-`icon-baker ((-e <file path> <size>... [-r (nearest | linear | cubic)])... (-ico | -icns | -png) [<output path>]) | -h | --help | -v | --version`
+`icon-pie ((-e <file path> <size>... [-r (nearest | linear | cubic)])... (-ico | -icns | -png) [<output path>]) | -h | --help | -v | --version`
 
 | Flag                  | Description                                                                                                           |
 |-----------------------|-----------------------------------------------------------------------------------------------------------------------|
@@ -20,9 +20,9 @@ The formal [`docopt`](http://docopt.org/) syntax for using **IconBaker** is as f
 | `-v`, `--version`     | Display version information.                                                                                          |
 
 ### Examples
-* `icon-baker -e small.svg 16 20 24 -e big.png 32 64 -ico output.ico`
-* `icon-baker -e image.png 32 64 48 -r linear -png output.tar`
-* `echo Here's an ICNS file: ${ icon-baker -e image.jpg 16 32 64 -r cubic -icns | hexdump }`
+* `icon-pie -e small.svg 16 20 24 -e big.png 32 64 -ico output.ico`
+* `icon-pie -e image.png 32 64 48 -r linear -png output.tar`
+* `echo Here's an ICNS file: ${ icon-pie -e image.jpg 16 32 64 -r cubic -icns | hexdump }`
 
 ## Supported Image Formats
 | Format | Supported?                                                      | 
@@ -35,10 +35,10 @@ The formal [`docopt`](http://docopt.org/) syntax for using **IconBaker** is as f
 | `TIFF` | Baseline(no fax support), `LZW`, PackBits                       | 
 | `WEBP` | Lossy(Luma channel only)                                        | 
 | `PNM ` | `PBM`, `PGM`, `PPM`, standard `PAM`                             |
-| `SVG`  | [Limited](https://github.com/GarkGarcia/icon-baker#svg-support) |
+| `SVG`  | [Limited](https://github.com/GarkGarcia/icon-pie#svg-support) |
 
 ## Limitations
-**IconBaker** has two main limitations: both `ICNS` and `SVG` are not fully supported. Due to the 
+**IconPie** has two main limitations: both `ICNS` and `SVG` are not fully supported. Due to the 
 use of external dependencies, this app's author is not able to fully support the formal specifications 
 of those two file formats.
 
@@ -81,11 +81,11 @@ However, the coverage provided by this external dependencies should be enough fo
 | `ic14` | 256x256@2x "retina" 32-bit PNG/JP2 icon | PNG only   |
 
 ### SVG Support
-**IconBaker** uses the `nsvg` crate to rasterize `.svg` files. According to the authors of the crate:
+**IconPie** uses the `nsvg` crate to rasterize `.svg` files. According to the authors of the crate:
 
 > Like NanoSVG, the rasterizer only renders flat filled shapes. It is not particularly fast or accurate, but it is a simple way to bake vector graphics into textures.
 
-The author of `icon-baker` is inclined to search for alternatives to `nsvg` if inquired to. Help would be appreciated.
+The author of `icon-pie` is inclined to search for alternatives to `nsvg` if inquired to. Help would be appreciated.
 
 ## License
-Licensed under MIT license([LICENSE-MIT](https://github.com/GarkGarcia/icon-baker/blob/master/LICENSE) or http://opensource.org/licenses/MIT).
+Licensed under MIT license([LICENSE-MIT](https://github.com/GarkGarcia/icon-pie/blob/master/LICENSE) or http://opensource.org/licenses/MIT).

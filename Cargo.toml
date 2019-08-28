@@ -1,12 +1,12 @@
 [package]
-name = "icon-baker"
-version = "0.3.0-beta"
+name = "icon-pie"
+version = "0.1.0-beta"
 authors = ["Gark Garcia <thiago.brevidelli.garcia@protonmail.com>"]
 edition = "2018"
 description = "A simple command line tool for generating application icons."
 license-file = "LICENSE"
-repository = "https://github.com/GarkGarcia/icon-baker"
-homepage = "https://github.com/GarkGarcia/icon-baker"
+repository = "https://github.com/GarkGarcia/icon-pie"
+homepage = "https://github.com/GarkGarcia/icon-pie"
 readme = "README.md"
 keywords = ["cli", "icon", "ico", "icns"]
 categories = ["command-line-utilities"]

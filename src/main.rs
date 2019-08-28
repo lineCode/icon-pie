@@ -42,17 +42,19 @@ macro_rules! syntax {
     ($err:expr) => { Err(Error::Syntax($err)) };
 }
 
-const VERSION: &str = "0.3.0-beta";
+const VERSION: &str = "0.1.0-beta";
 const TITLE: &str = r"
- __  ___  __   __ _  ____   __   __ _  ____  ____ 
-(  )/ __)/  \ (  ( \(  _ \ / _\ (  / )(  __)(  _ \
- )(( (__(  O )/    / ) _ (/    \ )  (  ) _)  )   /
-(__)\___)\__/ \_)__)(____/\_/\_/(__\_)(____)(__\_)";
-const USAGE: &str = "icon-baker ((-e <file path> <size>... [-r (nearest | linear | cubic)])... (-ico | -icns | -png) [<output path>]) | -h | --help | -v | --version";
+ _____               ______ _      
+|_   _|              | ___ (_)     
+  | |  ___ ___  _ __ | |_/ /_  ___ 
+  | | / __/ _ \| '_ \|  __/| |/ _ \
+ _| || (_| (_) | | | | |   | |  __/
+ \___/\___\___/|_| |_\_|   |_|\___|";
+const USAGE: &str = "icon-pie ((-e <file path> <size>... [-r (nearest | linear | cubic)])... (-ico | -icns | -png) [<output path>]) | -h | --help | -v | --version";
 const EXAMPLES: [&str;3] = [
-    "icon-baker -e small.svg 16 20 24 -e big.png 32 64 -ico output.ico",
-    "icon-baker -e image.png 32 64 48 -r linear -png output.tar",
-    "echo Here's an ICNS file: ${ icon-baker -e image.jpg 16 32 64 -r cubic -icns | hexdump }"
+    "icon-pie -e small.svg 16 20 24 -e big.png 32 64 -ico output.ico",
+    "icon-pie -e image.png 32 64 48 -r linear -png output.tar",
+    "echo Here's an ICNS file: ${ icon-pie -e image.jpg 16 32 64 -r cubic -icns | hexdump }"
 ];
 
 const COMMANDS: [&str;7] = [
@@ -134,7 +136,7 @@ fn help() {
 
 #[inline]
 fn version() {
-    println!("icon-baker v{}", VERSION);
+    println!("icon-pie v{}", VERSION);
 }
 
 fn args() -> Vec<String> {

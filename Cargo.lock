@@ -206,8 +206,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "icon-baker"
-version = "0.3.0-beta"
+name = "icon-pie"
+version = "0.1.0-beta"
 dependencies = [
  "crossterm 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "icon_baker 2.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
