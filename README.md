@@ -1,63 +1,50 @@
 # IconBaker
+[![Crate](https://img.shields.io/crates/v/icon-baker.svg)](https://crates.io/crates/icon-baker)
+[![Minimum rustc version](https://img.shields.io/badge/rustc-1.32+-lightgray.svg)](https://github.com/rust-random/rand#rust-version-requirements)
 
 A simple command line tool for generating application icons.
 
-## Intelligent Re-sampling
-**Icon Baker** uses _[nearest-neighbor re-sampling](https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation)_ by default, avoiding blurred edges when up-sizing small bitmap sources:
+## Usage
+The formal [`docopt`](http://docopt.org/) syntax for using **IconBaker** is as follows:
 
-<img width="480px" height="248px" src="image1.png">
+`icon-baker ((-e <file path> <size>... [-r (nearest | linear | cubic)])... (-ico | -icns | -png) [<output path>]) | -h | --help | -v | --version`
 
-Furthermore, **Icon Baker** only up-sizes bitmap sources on an integer scale, filling the leftover pixels with a transparent border and providing pixel-perfect quality:
+| Flag                  | Description                                                                                                           |
+|-----------------------|-----------------------------------------------------------------------------------------------------------------------|
+| `-e <options>`        | Specify an entrys options.                                                                                            |
+| `-r <filter>`         | Specify a resampling filter: `nearest`, `linear` or `cubic`. If no filter is specified the app defaults to `nearest`. |
+| `-ico <output path>`  | Outputs to a `.ico` file.                                                                                             |
+| `-icns <output path>` | Outputs to a `.icns` file.                                                                                            |
+| `-png <output path>`  | Outputs a `.png` sequence as a `.tar` file.                                                                           |
+| `-h`, `--help`        | Help.                                                                                                                 |
+| `-v`, `--version`     | Display version information.                                                                                          |
 
-<img width="358px" height="222px" src="image2.png">
-
-If you want your image to be linear interpolated, simply add the `-i` option to it's entry.
+### Examples
+* `icon-baker -e small.svg 16 20 24 -e big.png 32 64 -ico output.ico`
+* `icon-baker -e image.png 32 64 48 -r linear -png output.tar`
+* `echo Here's an ICNS file: ${ icon-baker -e image.jpg 16 32 64 -r cubic -icns | hexdump }`
 
 ## Supported Image Formats
-| Format | Supported?                                                                                 | 
-| ------ | -------------------------------------------------------------------------------------------| 
-| `PNG`  | All supported color types                                                                  | 
-| `JPEG` | Baseline and progressive                                                                   | 
-| `GIF`  | Yes                                                                                        | 
-| `BMP`  | Yes                                                                                        | 
-| `ICO`  | Yes                                                                                        | 
-| `TIFF` | Baseline(no fax support), `LZW`, PackBits                                                  | 
-| `WEBP` | Lossy(Luma channel only)                                                                   | 
-| `PNM ` | `PBM`, `PGM`, `PPM`, standard `PAM`                                                        |
-| `SVG`  | Limited([flat filled shapes only](https://github.com/GarkGarcia/icon_baker#svg-support))   |
-
-## Usage
-The formal syntax for using **IconBaker** is as follows:
-
-`icon-baker (-e <file path> <size>... [-i | --interpolate] [-p | --proportional])... (-ico <output path> | -icns <output path> | -png <output path>) | -h | --help | -v | --version`
-
-### Flags
-
-|Flag                 |Description                                |
-|---------------------|-------------------------------------------|
-|`-e (<options>)`     |Specify an entrys options.                 |
-|`-o <output path>`   |Outputs to `.ico` or `.icns` file.         |
-|`-ico <output path>` |Outputs to a .ico file.                    |
-|`-icns <output path>`|Outputs to a .icns file.                   |
-|`-png <output path>` |Outputs a `.png` sequence as a `.zip` file.|
-|`-h`, `--help`       |Help.                                      |
-|`-v`, `--version`    |Display version information.               |
-
-### Options
-|Option                |Description                                                                                                       |
-|----------------------|------------------------------------------------------------------------------------------------------------------|
-|`-i`, `--interpolate` |Apply linear interpolation when resampling the image.                                                             |
-|`-p`, `--proportional`|Preserves the aspect ratio of the image in the output. This option is only valid when outputting to png sequences.|
-
-## Examples
-* `icon-baker -e small.svg 16 20 24 -e big.png 32 64 -ico output.ico`
-* `icon-baker -e image.png 32x12 64x28 48 -i -png output.zip`
+| Format | Supported?                                                      | 
+|--------|-----------------------------------------------------------------| 
+| `PNG`  | All supported color types                                       | 
+| `JPEG` | Baseline and progressive                                        | 
+| `GIF`  | Yes                                                             | 
+| `BMP`  | Yes                                                             | 
+| `ICO`  | Yes                                                             | 
+| `TIFF` | Baseline(no fax support), `LZW`, PackBits                       | 
+| `WEBP` | Lossy(Luma channel only)                                        | 
+| `PNM ` | `PBM`, `PGM`, `PPM`, standard `PAM`                             |
+| `SVG`  | [Limited](https://github.com/GarkGarcia/icon-baker#svg-support) |
 
 ## Limitations
-**IconBaker** has two main limitations: both `ICNS` and `SVG` are not fully supported. Due to the use of external dependencies, this app's author is not able to fully support the formal specifications of those two file formats.
+**IconBaker** has two main limitations: both `ICNS` and `SVG` are not fully supported. Due to the 
+use of external dependencies, this app's author is not able to fully support the formal specifications 
+of those two file formats.
 
 However, the coverage provided by this external dependencies should be enough for most use cases.
 
+### ICNS Support
 | OSType | Description                             | Supported? |
 |--------|-----------------------------------------|------------|
 | `ICON` | 32×32 1-bit icon                        | No         |
@@ -92,3 +79,13 @@ However, the coverage provided by this external dependencies should be enough fo
 | `ic12` | 32x32@2x "retina" 32-bit PNG/JP2 icon   | PNG only   |
 | `ic13` | 128x128@2x "retina" 32-bit PNG/JP2 icon | PNG only   |
 | `ic14` | 256x256@2x "retina" 32-bit PNG/JP2 icon | PNG only   |
+
+### SVG Support
+**IconBaker** uses the `nsvg` crate to rasterize `.svg` files. According to the authors of the crate:
+
+> Like NanoSVG, the rasterizer only renders flat filled shapes. It is not particularly fast or accurate, but it is a simple way to bake vector graphics into textures.
+
+The author of `icon-baker` is inclined to search for alternatives to `nsvg` if inquired to. Help would be appreciated.
+
+## License
+Licensed under MIT license([LICENSE-MIT](https://github.com/GarkGarcia/icon-baker/blob/master/LICENSE) or http://opensource.org/licenses/MIT).

@@ -3,6 +3,13 @@ name = "icon-baker"
 version = "0.3.0-beta"
 authors = ["Gark Garcia <thiago.brevidelli.garcia@protonmail.com>"]
 edition = "2018"
+description = "A simple command line tool for generating application icons."
+license-file = "LICENSE"
+repository = "https://github.com/GarkGarcia/icon-baker"
+homepage = "https://github.com/GarkGarcia/icon-baker"
+readme = "README.md"
+keywords = ["cli", "icon", "ico", "icns"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 icon_baker = "2.1.1"
