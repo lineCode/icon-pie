@@ -3,21 +3,22 @@
 [![Minimum rustc version](https://img.shields.io/badge/rustc-1.32+-lightgray.svg)](https://github.com/rust-random/rand#rust-version-requirements)
 
 A simple command line tool for generating application icons.
+Quickly combine multiple images and create professinal looking icons for most versions of Windows, MacOS, iOS & Linux.
 
 ## Usage
 The formal [`docopt`](http://docopt.org/) syntax for using **IconPie** is as follows:
 
 `icon-pie ((-e <file path> <size>... [-r (nearest | linear | cubic)])... (-ico | -icns | -png) [<output path>]) | -h | --help | -v | --version`
 
-| Flag                  | Description                                                                                                           |
-|-----------------------|-----------------------------------------------------------------------------------------------------------------------|
-| `-e <options>`        | Specify an entrys options.                                                                                            |
-| `-r <filter>`         | Specify a resampling filter: `nearest`, `linear` or `cubic`. If no filter is specified the app defaults to `nearest`. |
-| `-ico <output path>`  | Outputs to a `.ico` file.                                                                                             |
-| `-icns <output path>` | Outputs to a `.icns` file.                                                                                            |
-| `-png <output path>`  | Outputs a `.png` sequence as a `.tar` file.                                                                           |
-| `-h`, `--help`        | Help.                                                                                                                 |
-| `-v`, `--version`     | Display version information.                                                                                          |
+| Flag                    | Description                                                                                                           |
+|-------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| `-e <options>`          | Specify an entrys options.                                                                                            |
+| `-r <filter>`           | Specify a resampling filter: `nearest`, `linear` or `cubic`. If no filter is specified the app defaults to `nearest`. |
+| `-ico [<output path>]`  | Outputs to a `.ico` file. If no output path is specified the app outputs to `stdout`.                                 |
+| `-icns [<output path>]` | Outputs to a `.icns` file. If no output path is specified the app outputs to `stdout`.                                |
+| `-png [<output path>]`  | Outputs a `.png` sequence as a `.tar` file. If no output path is specified the app outputs to `stdout`.               |
+| `-h`, `--help`          | Help.                                                                                                                 |
+| `-v`, `--version`       | Display version information.                                                                                          |
 
 ### Examples
 * `icon-pie -e small.svg 16 20 24 -e big.png 32 64 -ico output.ico`

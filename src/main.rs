@@ -42,7 +42,7 @@ macro_rules! syntax {
     ($err:expr) => { Err(Error::Syntax($err)) };
 }
 
-const VERSION: &str = "0.1.0-beta";
+const VERSION: &str = "0.1.1-beta";
 const TITLE: &str = r"
  _____               ______ _      
 |_   _|              | ___ (_)     
@@ -60,9 +60,9 @@ const EXAMPLES: [&str;3] = [
 const COMMANDS: [&str;7] = [
     "Specify an entrie's options.",
     "Specify a resampling filter: 'nearest', 'linear' or 'cubic'. If no filter is specified the app defaults to 'nearest'.",
-    "Outputs to a .ico file.",
-    "Outputs to a .icns file.",
-    "Outputs a .png sequence as a .tar file.",
+    "Outputs to a .ico file. If no output path is specified the app outputs to stdout.",
+    "Outputs to a .icns file. If no output path is specified the app outputs to stdout.",
+    "Outputs a .png sequence as a .tar file. If no output path is specified the app outputs to stdout.",
     "Help.",
     "Display version information.",
 ];
@@ -110,19 +110,19 @@ fn help() {
     println!("\n{} {}\n\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}",
         style("Usage:").with(Color::Blue),
         style(USAGE).with(Color::Green),
-        style("   -e <options>        ").with(Color::Green),
+        style("   -e <options>          ").with(Color::Green),
         COMMANDS[0],
-        style("   -r <filter>         ").with(Color::Green),
+        style("   -r <filter>           ").with(Color::Green),
         COMMANDS[1],
-        style("   -ico <output path>  ").with(Color::Green),
+        style("   -ico [<output path>]  ").with(Color::Green),
         COMMANDS[2],
-        style("   -icns <output path> ").with(Color::Green),
+        style("   -icns [<output path>] ").with(Color::Green),
         COMMANDS[3],
-        style("   -png <output path>  ").with(Color::Green),
+        style("   -png [<output path>]  ").with(Color::Green),
         COMMANDS[4],
-        style("   -h, --help          ").with(Color::Green),
+        style("   -h, --help            ").with(Color::Green),
         COMMANDS[5],
-        style("   -v, --version       ").with(Color::Green),
+        style("   -v, --version         ").with(Color::Green),
         COMMANDS[6]
     );
 
