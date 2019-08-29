@@ -2,7 +2,7 @@
 [![Crate](https://img.shields.io/crates/v/icon-pie.svg)](https://crates.io/crates/icon-pie)
 [![Minimum rustc version](https://img.shields.io/badge/rustc-1.32+-lightgray.svg)](https://github.com/rust-random/rand#rust-version-requirements)
 
-A simple command line tool for generating application icons.
+A simple command-line tool for generating application icons.
 Quickly combine multiple images and create professinal looking icons for most versions of Windows, MacOS, iOS & Linux.
 
 ## Usage
