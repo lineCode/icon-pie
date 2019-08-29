@@ -10,7 +10,7 @@ pub fn syntax(err: &SyntaxError) {
         SyntaxError::UnexpectedToken(err_c) => println!(
             "{} {} {} {} {}",
             style("[Unexpected Token]").with(Color::Red),
-            style("icon-pie").with(Color::Blue),
+            style("$ icon-pie").with(Color::Blue),
             style(args[..*err_c].join(" ")).with(Color::Blue),
             style(args[*err_c].clone()).with(Color::Red),
             style(args[(*err_c + 1)..].join(" ")).with(Color::Blue)
@@ -18,7 +18,7 @@ pub fn syntax(err: &SyntaxError) {
         SyntaxError::UnexpectedEnd => println!(
             "{} {} {} {}\nType {} for more details on IconBaker's usage.",
             style("[Expected Additional Tokens]").with(Color::Red),
-            style("icon-pie").with(Color::Blue),
+            style("$ icon-pie").with(Color::Blue),
             style(args.join(" ")).with(Color::Blue),
             style("▂").with(Color::Red),
             style("icon-pie -h").with(Color::Blue)

@@ -3,27 +3,27 @@
 [![Minimum rustc version](https://img.shields.io/badge/rustc-1.32+-lightgray.svg)](https://github.com/rust-random/rand#rust-version-requirements)
 
 A simple command-line tool for generating application icons.
-Quickly combine multiple images and create professinal looking icons for most versions of Windows, MacOS, iOS & Linux.
+Quickly combine multiple images and create professional-looking icons for most versions of Windows, macOS, iOS & Linux.
 
 ## Usage
 The formal [`docopt`](http://docopt.org/) syntax for using **IconPie** is as follows:
 
-`icon-pie ((-e <file path> <size>... [-r (nearest | linear | cubic)])... (-ico | -icns | -png) [<output path>]) | -h | --help | -v | --version`
+`$ icon-pie ((-e <file path> <size>... [-r (nearest | linear | cubic)])... (-ico | -icns | -png) [<output path>]) | -h | --help | -v | --version`
 
-| Flag                    | Description                                                                                                           |
-|-------------------------|-----------------------------------------------------------------------------------------------------------------------|
-| `-e <options>`          | Specify an entrys options.                                                                                            |
-| `-r <filter>`           | Specify a resampling filter: `nearest`, `linear` or `cubic`. If no filter is specified the app defaults to `nearest`. |
-| `-ico [<output path>]`  | Outputs to a `.ico` file. If no output path is specified the app outputs to `stdout`.                                 |
-| `-icns [<output path>]` | Outputs to a `.icns` file. If no output path is specified the app outputs to `stdout`.                                |
-| `-png [<output path>]`  | Outputs a `.png` sequence as a `.tar` file. If no output path is specified the app outputs to `stdout`.               |
-| `-h`, `--help`          | Help.                                                                                                                 |
-| `-v`, `--version`       | Display version information.                                                                                          |
+| Flag                    | Description                                                                                                            |
+|-------------------------|------------------------------------------------------------------------------------------------------------------------|
+| `-e <options>`          | Specify an entry's options.                                                                                            |
+| `-r <filter>`           | Specify a re-sampling filter: `nearest`, `linear` or `cubic`. If no filter is specified the app defaults to `nearest`. |
+| `-ico [<output path>]`  | Outputs to an `.ico` file. If no output path is specified the app outputs to `stdout`.                                  |
+| `-icns [<output path>]` | Outputs to an `.icns` file. If no output path is specified the app outputs to `stdout`.                                 |
+| `-png [<output path>]`  | Outputs a `.png` sequence as a `.tar` file. If no output path is specified the app outputs to `stdout`.                |
+| `-h`, `--help`          | Help.                                                                                                                  |
+| `-v`, `--version`       | Display version information.                                                                                           |
 
 ### Examples
-* `icon-pie -e small.svg 16 20 24 -e big.png 32 64 -ico output.ico`
-* `icon-pie -e image.png 32 64 48 -r linear -png output.tar`
-* `echo Here's an ICNS file: ${ icon-pie -e image.jpg 16 32 64 -r cubic -icns | hexdump }`
+* `$ icon-pie -e small.svg 16 20 24 -e big.png 32 64 -ico output.ico`
+* `$ icon-pie -e image.png 32 64 48 -r linear -png output.tar`
+* `$ echo Here's an ICNS file: ${ icon-pie -e image.jpg 16 32 64 -r cubic -icns | hexdump }`
 
 ## Supported Image Formats
 | Format | Supported?                                                      | 
@@ -36,7 +36,7 @@ The formal [`docopt`](http://docopt.org/) syntax for using **IconPie** is as fol
 | `TIFF` | Baseline(no fax support), `LZW`, PackBits                       | 
 | `WEBP` | Lossy(Luma channel only)                                        | 
 | `PNM ` | `PBM`, `PGM`, `PPM`, standard `PAM`                             |
-| `SVG`  | [Limited](https://github.com/GarkGarcia/icon-pie#svg-support) |
+| `SVG`  | [Limited](https://github.com/GarkGarcia/icon-pie#svg-support)   |
 
 ## Limitations
 **IconPie** has two main limitations: both `ICNS` and `SVG` are not fully supported. Due to the 
